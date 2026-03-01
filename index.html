@@ -236,7 +236,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.18</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.19</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -1410,7 +1410,8 @@ function rematchExtracto(record) {
   if (!record.fecha || !record.proveedor) return;
   const monthKey = record.fecha.slice(0, 7);
   const yearKey = record.fecha.slice(0, 4);
-  const ex = extractos[monthKey] || extractos[yearKey];
+  const storageKey = extractos[monthKey] ? monthKey : (extractos[yearKey] ? yearKey : null);
+  const ex = extractos[storageKey];
   if (!ex || !ex.movimientos || ex.movimientos.length === 0) return;
 
   const provNorm = p => (p || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1433,7 +1434,18 @@ function rematchExtracto(record) {
 
   if (matched > 0) {
     saveExtractos();
+    // Also update checklistData if we're currently viewing this month
+    if (checklistData.length > 0) {
+      const key = storageKey;
+      ex.movimientos.forEach((m, i) => {
+        if (checklistData[i]) {
+          checklistData[i].tiene_factura = m.tiene_factura;
+          checklistData[i].factura_ref = m.factura_ref;
+        }
+      });
+    }
     renderCalendar();
+    if (currentTab === 'extracto') renderChecklist();
     showToast('🔄 ' + matched + ' movimiento' + (matched > 1 ? 's' : '') + ' cruzado' + (matched > 1 ? 's' : '') + ' con extracto', 'success');
   }
 }
