@@ -236,7 +236,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.22</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.23</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -1876,6 +1876,10 @@ async function doProcessExtracto(file) {
 
 function setAnalyzingStatus(msg) {
   document.getElementById('analyzing-status').textContent = msg;
+}
+
+function saveExtractos() {
+  localStorage.setItem('fs_extractos', JSON.stringify(extractos));
 }
 
 async function buildChecklist(data, file) {
