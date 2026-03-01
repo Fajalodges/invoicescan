@@ -236,7 +236,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.8</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -1410,10 +1410,11 @@ function saveExtractos() {
 
 // ── CALENDAR ──
 function renderCalendar() {
-  const years = [...new Set([
-    ...Object.keys(extractos).map(k => k.length === 4 ? k : k.slice(0,4)),
-    String(new Date().getFullYear())
-  ])].sort().reverse();
+  const allYears = new Set(Object.keys(extractos).map(k => k.slice(0,4)));
+  // Add current year and the year being viewed
+  allYears.add(String(new Date().getFullYear()));
+  allYears.add(String(calendarYear));
+  const years = [...allYears].filter(y => !isNaN(parseInt(y))).sort().reverse();
 
   // Year selector
   const ySel = document.getElementById('year-selector');
@@ -1755,18 +1756,30 @@ async function buildChecklist(data, file) {
 
   checklistData.forEach(m => { m._ignored = false; m._id = Math.random(); });
 
-  // Determine storage key from data dates
+  // Determine storage key ALWAYS from actual movement dates (not upload date)
   const dates = checklistData.filter(m => m.fecha).map(m => m.fecha).sort();
-  let storageKey = pendingExtractoKey;
-  if (!storageKey && dates.length > 0) {
+  let storageKey;
+  if (dates.length > 0) {
+    const firstDate = dates[0];
     const lastDate = dates[dates.length - 1];
-    if (extractoPeriod >= 12) {
-      storageKey = lastDate.slice(0,4); // annual
+    const firstMonth = firstDate.slice(0,7);
+    const lastMonth = lastDate.slice(0,7);
+    const firstYear = firstDate.slice(0,4);
+    const lastYear = lastDate.slice(0,4);
+    if (firstYear !== lastYear) {
+      // Spans multiple years - use last year as key
+      storageKey = lastYear;
+    } else if (firstMonth !== lastMonth) {
+      // Spans multiple months - use last month or annual key
+      const monthSpan = (new Date(lastDate) - new Date(firstDate)) / (1000*60*60*24*30);
+      storageKey = monthSpan >= 10 ? lastYear : lastMonth;
     } else {
-      storageKey = lastDate.slice(0,7); // monthly
+      // Single month
+      storageKey = lastMonth;
     }
+  } else {
+    storageKey = pendingExtractoKey || new Date().toISOString().slice(0,7);
   }
-  storageKey = storageKey || new Date().toISOString().slice(0,7);
 
   // Save to localStorage
   const record = {
@@ -1824,6 +1837,8 @@ async function buildChecklist(data, file) {
     document.getElementById('results-period-label').textContent = MONTHS_ES[parseInt(m)-1] + ' ' + y;
   }
 
+  // Jump calendar to the year of the extracto
+  calendarYear = parseInt(storageKey.slice(0,4));
   document.getElementById('extracto-analyzing').style.display = 'none';
   showResults();
   renderCalendar();
