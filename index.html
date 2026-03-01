@@ -236,7 +236,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.19</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.20</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -1434,13 +1434,15 @@ function rematchExtracto(record) {
 
   if (matched > 0) {
     saveExtractos();
-    // Also update checklistData if we're currently viewing this month
+    // Sync checklistData if currently viewing this extracto
     if (checklistData.length > 0) {
-      const key = storageKey;
-      ex.movimientos.forEach((m, i) => {
-        if (checklistData[i]) {
-          checklistData[i].tiene_factura = m.tiene_factura;
-          checklistData[i].factura_ref = m.factura_ref;
+      checklistData.forEach(cd => {
+        const match = ex.movimientos.find(m =>
+          m.fecha === cd.fecha && m.proveedor === cd.proveedor && m.monto === cd.monto
+        );
+        if (match) {
+          cd.tiene_factura = match.tiene_factura;
+          cd.factura_ref = match.factura_ref;
         }
       });
     }
@@ -1480,8 +1482,9 @@ function renderCalendar() {
     // Count invoices for this month
     const monthInvoices = ledger.filter(r => r.fecha && r.fecha.startsWith(monthKey));
     const movements = ex ? (ex.movimientos || []) : [];
-    const missing = movements.filter(m => !m.tiene_factura && !m._ignored).length;
-    const found = movements.filter(m => m.tiene_factura).length;
+    const gastos = movements.filter(m => !m.tipo || m.tipo === 'gasto');
+    const missing = gastos.filter(m => !m.tiene_factura && !m._ignored).length;
+    const found = gastos.filter(m => m.tiene_factura).length;
 
     let cardCls = 'month-card';
     if (isFuture) cardCls += ' future';
