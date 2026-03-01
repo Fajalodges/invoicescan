@@ -147,6 +147,31 @@
     .overflow-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .tag { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 700; background: var(--surface2); border: 1px solid var(--border); }
 
+    /* MONTH CALENDAR */
+    .month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 28px; }
+    .month-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 12px; cursor: pointer; transition: all .2s; position: relative; }
+    .month-card:hover { border-color: var(--accent); }
+    .month-card.has-extracto { border-color: rgba(136,170,255,0.5); }
+    .month-card.all-ok { border-color: rgba(68,255,136,0.5); background: rgba(68,255,136,0.04); }
+    .month-card.has-missing { border-color: rgba(255,68,68,0.4); background: rgba(255,68,68,0.03); }
+    .month-card.active-month { box-shadow: 0 0 0 2px var(--accent); }
+    .month-name { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .month-badges { display: flex; flex-direction: column; gap: 3px; }
+    .month-badge { font-size: 10px; font-family: var(--mono); display: flex; align-items: center; gap: 4px; }
+    .month-badge.ok { color: var(--success); }
+    .month-badge.warn { color: var(--danger); }
+    .month-badge.info { color: #88aaff; }
+    .month-badge.muted { color: var(--muted); }
+    .year-selector { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+    .year-btn { padding: 5px 12px; border-radius: 100px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; cursor: pointer; background: transparent; color: var(--muted); transition: all .15s; }
+    .year-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .year-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    .extracto-exists-banner { background: rgba(136,170,255,0.1); border: 1px solid rgba(136,170,255,0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .extracto-exists-banner .eicon { font-size: 20px; }
+    .extracto-exists-banner .etext { flex: 1; font-size: 12px; }
+    .extracto-exists-banner .etext strong { display: block; font-size: 13px; margin-bottom: 2px; }
+    .extracto-exists-banner .emuted { color: var(--muted); font-size: 11px; font-family: var(--mono); }
+
     /* EXTRACTO TAB */
     .extracto-drop { border: 2px dashed var(--border); border-radius: 20px; padding: 48px 20px; text-align: center; cursor: pointer; transition: all .2s; position: relative; margin-bottom: 24px; }
     .extracto-drop:hover, .extracto-drop.drag-over { border-color: #88aaff; background: rgba(136,170,255,0.03); }
@@ -298,19 +323,51 @@
   </div>
 </main>
 
+<!-- REPLACE EXTRACTO MODAL -->
+<div class="modal-overlay" id="replace-extracto-modal">
+  <div class="modal">
+    <h3>Ya existe un extracto</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px" id="replace-extracto-msg">Ya subiste un extracto para este período. ¿Querés reemplazarlo?</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('replace-extracto-modal')">Cancelar</button>
+      <button class="btn-primary" onclick="confirmReplaceExtracto()">Reemplazar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ EXTRACTO TAB ═══ -->
 <main id="view-extracto" style="display:none">
   <div style="height:16px"></div>
 
-  <div id="extracto-upload-section">
-    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.7">
-      Subí el extracto bancario del período que querés revisar. Claude va a comparar cada movimiento con las facturas que ya subiste y te va a decir exactamente qué falta y dónde buscarlo.
-    </p>
+  <!-- YEAR SELECTOR + CALENDAR -->
+  <div id="extracto-calendar-section">
+    <div class="year-selector" id="year-selector"></div>
+    <div class="month-grid" id="month-grid"></div>
+    <button class="hbtn" onclick="showUploadSection(null)" style="width:100%;justify-content:center;margin-bottom:24px">
+      💳 Subir extracto anual / período personalizado
+    </button>
+  </div>
+
+  <!-- UPLOAD SECTION -->
+  <div id="extracto-upload-section" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button class="check-btn" onclick="hideUploadSection()" style="padding:6px 12px">← Volver</button>
+      <div class="section-label" style="margin:0" id="upload-section-title">Subir extracto</div>
+    </div>
+
+    <div id="extracto-exists-banner" style="display:none" class="extracto-exists-banner">
+      <div class="eicon">📋</div>
+      <div class="etext">
+        <strong id="extracto-exists-title">Ya existe un extracto</strong>
+        <div class="emuted" id="extracto-exists-sub">Subido el —</div>
+      </div>
+      <button class="check-btn" onclick="viewExistingChecklist()">Ver checklist</button>
+    </div>
 
     <div class="extracto-drop" id="extracto-drop">
       <input type="file" id="extracto-input" accept=".pdf,.csv,.xlsx,.xls,image/*" />
       <span class="drop-icon" style="font-size:40px;display:block;margin-bottom:12px">💳</span>
-      <div class="drop-title">Subí tu extracto bancario</div>
+      <div class="drop-title">Soltá el extracto acá</div>
       <div class="drop-sub" style="margin-top:6px">PDF · CSV · Excel · Imagen — cualquier banco</div>
     </div>
 
@@ -332,34 +389,26 @@
   </div>
 
   <div id="extracto-results" style="display:none">
-    <div class="match-stats">
-      <div class="match-stat ok">
-        <div class="val" id="stat-found">0</div>
-        <div class="lbl">Con factura ✓</div>
-      </div>
-      <div class="match-stat warn">
-        <div class="val" id="stat-missing">0</div>
-        <div class="lbl">Faltan ⚠</div>
-      </div>
-      <div class="match-stat info">
-        <div class="val" id="stat-total-movements">0</div>
-        <div class="lbl">Movimientos</div>
-      </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button class="check-btn" onclick="backToCalendar()" style="padding:6px 12px">← Calendario</button>
+      <div class="section-label" style="margin:0" id="results-period-label"></div>
     </div>
-
+    <div class="match-stats">
+      <div class="match-stat ok"><div class="val" id="stat-found">0</div><div class="lbl">Con factura ✓</div></div>
+      <div class="match-stat warn"><div class="val" id="stat-missing">0</div><div class="lbl">Faltan ⚠</div></div>
+      <div class="match-stat info"><div class="val" id="stat-total-movements">0</div><div class="lbl">Movimientos</div></div>
+    </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div class="section-label" style="margin:0">Checklist de facturas</div>
+      <div class="section-label" style="margin:0">Checklist</div>
       <div style="display:flex;gap:6px">
         <button class="check-btn" onclick="filterChecklist('all')" id="cf-all" style="border-color:var(--accent);color:var(--accent)">Todos</button>
         <button class="check-btn" onclick="filterChecklist('missing')" id="cf-missing">Faltan</button>
         <button class="check-btn" onclick="filterChecklist('found')" id="cf-found">OK</button>
       </div>
     </div>
-
     <div class="checklist" id="checklist-container"></div>
-
     <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="hbtn" onclick="resetExtracto()" style="flex:1;justify-content:center">↺ Nuevo extracto</button>
+      <button class="hbtn" onclick="backToCalendar()" style="flex:1;justify-content:center">← Calendario</button>
       <button class="hbtn" onclick="switchTab('scan')" style="flex:1;justify-content:center;background:var(--accent);color:#000;border-color:var(--accent)">📷 Ir a escanear</button>
     </div>
   </div>
@@ -461,6 +510,7 @@ function init() {
   loadGoogleAPI();
   renderLedger();
   updateLedgerFilters();
+  renderCalendar();
 }
 
 // ══════════════════════════════════════════
@@ -1339,6 +1389,149 @@ document.getElementById('new-project-name').addEventListener('keydown', e => { i
 let extractoPeriod = 3;
 let checklistData = [];
 let checklistFilter = 'all';
+let extractos = JSON.parse(localStorage.getItem('fs_extractos') || '{}'); // key: "YYYY-MM" or "YYYY", value: {period, uploadedAt, driveLink, movimientos, banco}
+let calendarYear = new Date().getFullYear();
+let pendingExtractoFile = null; // file waiting for replace confirmation
+let pendingExtractoKey = null;
+
+function saveExtractos() {
+  localStorage.setItem('fs_extractos', JSON.stringify(extractos));
+}
+
+// ── CALENDAR ──
+function renderCalendar() {
+  const years = [...new Set([
+    ...Object.keys(extractos).map(k => k.length === 4 ? k : k.slice(0,4)),
+    String(new Date().getFullYear())
+  ])].sort().reverse();
+
+  // Year selector
+  const ySel = document.getElementById('year-selector');
+  ySel.innerHTML = years.map(y =>
+    '<button class="year-btn' + (String(calendarYear) === y ? ' active' : '') + '" onclick="setCalendarYear(' + y + ')">' + y + '</button>'
+  ).join('');
+
+  // Month grid
+  const grid = document.getElementById('month-grid');
+  const now = new Date();
+  grid.innerHTML = MONTHS_ES.map((mes, idx) => {
+    const monthKey = calendarYear + '-' + String(idx+1).padStart(2,'0');
+    const yearKey = String(calendarYear);
+    const ex = extractos[monthKey] || extractos[yearKey];
+    const isFuture = (calendarYear > now.getFullYear()) || (calendarYear === now.getFullYear() && idx > now.getMonth());
+
+    // Count invoices for this month
+    const monthInvoices = ledger.filter(r => r.fecha && r.fecha.startsWith(monthKey));
+    const movements = ex ? (ex.movimientos || []) : [];
+    const missing = movements.filter(m => !m.tiene_factura && !m._ignored).length;
+    const found = movements.filter(m => m.tiene_factura).length;
+
+    let cardCls = 'month-card';
+    if (isFuture) cardCls += ' future';
+    else if (ex && missing === 0 && found > 0) cardCls += ' all-ok';
+    else if (ex && missing > 0) cardCls += ' has-missing';
+    else if (ex) cardCls += ' has-extracto';
+
+    let badges = '';
+    if (isFuture) {
+      badges = '<div class="month-badge muted">—</div>';
+    } else if (ex) {
+      badges += '<div class="month-badge info">💳 Extracto subido</div>';
+      if (missing > 0) badges += '<div class="month-badge warn">⚠ ' + missing + ' faltante' + (missing !== 1 ? 's' : '') + '</div>';
+      else if (found > 0) badges += '<div class="month-badge ok">✓ Todo OK</div>';
+      if (monthInvoices.length > 0) badges += '<div class="month-badge ok">🧾 ' + monthInvoices.length + ' factura' + (monthInvoices.length !== 1 ? 's' : '') + '</div>';
+    } else {
+      badges = '<div class="month-badge muted">Sin extracto</div>';
+      if (monthInvoices.length > 0) badges += '<div class="month-badge ok">🧾 ' + monthInvoices.length + ' facturas</div>';
+    }
+
+    return '<div class="' + cardCls + '" onclick="clickMonth(' + (idx+1) + ')">' +
+      '<div class="month-name">' + mes + '</div>' +
+      '<div class="month-badges">' + badges + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function setCalendarYear(y) {
+  calendarYear = parseInt(y);
+  renderCalendar();
+}
+
+function clickMonth(monthNum) {
+  const monthKey = calendarYear + '-' + String(monthNum).padStart(2,'0');
+  const ex = extractos[monthKey] || extractos[String(calendarYear)];
+  if (ex && ex.movimientos) {
+    // Show existing checklist
+    checklistData = ex.movimientos;
+    document.getElementById('results-period-label').textContent = MONTHS_ES[monthNum-1] + ' ' + calendarYear;
+    showResults();
+  } else {
+    showUploadSection(monthKey);
+  }
+}
+
+function showUploadSection(monthKey) {
+  document.getElementById('extracto-calendar-section').style.display = 'none';
+  document.getElementById('extracto-upload-section').style.display = 'block';
+  document.getElementById('extracto-results').style.display = 'none';
+  document.getElementById('extracto-analyzing').style.display = 'none';
+
+  if (monthKey) {
+    const [y, m] = monthKey.split('-');
+    document.getElementById('upload-section-title').textContent = 'Extracto — ' + MONTHS_ES[parseInt(m)-1] + ' ' + y;
+    // Check if exists
+    const ex = extractos[monthKey];
+    const banner = document.getElementById('extracto-exists-banner');
+    if (ex) {
+      banner.style.display = 'flex';
+      document.getElementById('extracto-exists-title').textContent = 'Ya existe extracto de ' + MONTHS_ES[parseInt(m)-1];
+      document.getElementById('extracto-exists-sub').textContent = 'Subido el ' + new Date(ex.uploadedAt).toLocaleDateString('es');
+    } else {
+      banner.style.display = 'none';
+    }
+    pendingExtractoKey = monthKey;
+  } else {
+    document.getElementById('upload-section-title').textContent = 'Extracto período personalizado';
+    document.getElementById('extracto-exists-banner').style.display = 'none';
+    pendingExtractoKey = null;
+  }
+}
+
+function hideUploadSection() {
+  document.getElementById('extracto-calendar-section').style.display = 'block';
+  document.getElementById('extracto-upload-section').style.display = 'none';
+  renderCalendar();
+}
+
+function backToCalendar() {
+  document.getElementById('extracto-results').style.display = 'none';
+  document.getElementById('extracto-calendar-section').style.display = 'block';
+  renderCalendar();
+}
+
+function viewExistingChecklist() {
+  const ex = extractos[pendingExtractoKey];
+  if (ex && ex.movimientos) {
+    checklistData = ex.movimientos;
+    const [y, m] = pendingExtractoKey.split('-');
+    document.getElementById('results-period-label').textContent = MONTHS_ES[parseInt(m)-1] + ' ' + y;
+    showResults();
+  }
+}
+
+function showResults() {
+  document.getElementById('extracto-calendar-section').style.display = 'none';
+  document.getElementById('extracto-upload-section').style.display = 'none';
+  document.getElementById('extracto-analyzing').style.display = 'none';
+  document.getElementById('extracto-results').style.display = 'block';
+
+  const found = checklistData.filter(m => m.tiene_factura).length;
+  const missing = checklistData.filter(m => !m.tiene_factura && !m._ignored).length;
+  document.getElementById('stat-found').textContent = found;
+  document.getElementById('stat-missing').textContent = missing;
+  document.getElementById('stat-total-movements').textContent = checklistData.length;
+  renderChecklist();
+}
 
 // Source hints per vendor — learned from upload history
 const SOURCE_HINTS = {
@@ -1384,6 +1577,22 @@ extractoDrop.addEventListener('drop', e => {
 });
 
 async function processExtracto(file) {
+  // Check if replacing existing
+  if (pendingExtractoKey && extractos[pendingExtractoKey]) {
+    pendingExtractoFile = file;
+    document.getElementById('replace-extracto-msg').textContent = 'Ya subiste un extracto para ' + pendingExtractoKey + '. Reemplazarlo borrará el checklist anterior.';
+    openModal('replace-extracto-modal');
+    return;
+  }
+  await doProcessExtracto(file);
+}
+
+function confirmReplaceExtracto() {
+  closeModal('replace-extracto-modal');
+  doProcessExtracto(pendingExtractoFile);
+}
+
+async function doProcessExtracto(file) {
   document.getElementById('extracto-upload-section').style.display = 'none';
   document.getElementById('extracto-analyzing').style.display = 'block';
   document.getElementById('extracto-results').style.display = 'none';
@@ -1466,7 +1675,7 @@ async function processExtracto(file) {
     setAnalyzingStatus('Generando checklist...');
     await new Promise(r => setTimeout(r, 400));
 
-    buildChecklist(data);
+    await buildChecklist(data, file);
 
   } catch (err) {
     console.error(err);
@@ -1480,7 +1689,7 @@ function setAnalyzingStatus(msg) {
   document.getElementById('analyzing-status').textContent = msg;
 }
 
-function buildChecklist(data) {
+async function buildChecklist(data, file) {
   checklistData = data.movimientos || [];
 
   // Filter by period
@@ -1497,26 +1706,72 @@ function buildChecklist(data) {
     return (b.fecha || '').localeCompare(a.fecha || '');
   });
 
-  // Add ignored flag
   checklistData.forEach(m => { m._ignored = false; m._id = Math.random(); });
 
-  const found = checklistData.filter(m => m.tiene_factura).length;
-  const missing = checklistData.filter(m => !m.tiene_factura).length;
+  // Determine storage key from data dates
+  const dates = checklistData.filter(m => m.fecha).map(m => m.fecha).sort();
+  let storageKey = pendingExtractoKey;
+  if (!storageKey && dates.length > 0) {
+    const lastDate = dates[dates.length - 1];
+    if (extractoPeriod >= 12) {
+      storageKey = lastDate.slice(0,4); // annual
+    } else {
+      storageKey = lastDate.slice(0,7); // monthly
+    }
+  }
+  storageKey = storageKey || new Date().toISOString().slice(0,7);
 
-  document.getElementById('stat-found').textContent = found;
-  document.getElementById('stat-missing').textContent = missing;
-  document.getElementById('stat-total-movements').textContent = checklistData.length;
+  // Save to localStorage
+  const record = {
+    period: data.periodo || storageKey,
+    banco: data.banco || '',
+    uploadedAt: new Date().toISOString(),
+    movimientos: checklistData,
+    driveLink: null,
+    storageKey
+  };
+  extractos[storageKey] = record;
+  saveExtractos();
 
-  document.getElementById('extracto-analyzing').style.display = 'none';
-  document.getElementById('extracto-results').style.display = 'block';
-
-  // Show period info
-  if (data.periodo || data.banco) {
-    const info = [data.banco, data.periodo].filter(Boolean).join(' — ');
-    showToast('📊 ' + info, 'success');
+  // Upload to Drive in background
+  if (driveConnected && file) {
+    try {
+      const rootId = await getAppRootFolder();
+      let folderId;
+      if (storageKey.length === 4) {
+        // Annual
+        folderId = await getOrCreateSubfolder(storageKey, rootId);
+      } else {
+        const [y, m] = storageKey.split('-');
+        const yearId = await getOrCreateSubfolder(y, rootId);
+        folderId = await getOrCreateSubfolder(MONTHS_ES[parseInt(m)-1], yearId);
+      }
+      const ext = file.name.split('.').pop() || 'pdf';
+      const fname = 'extracto_' + storageKey + '.' + ext;
+      const blob = file;
+      const mimeType = file.type || 'application/pdf';
+      const uploaded = await uploadFile(blob, mimeType, fname, folderId);
+      extractos[storageKey].driveLink = uploaded.webViewLink;
+      saveExtractos();
+      showToast('💳 Extracto guardado en Drive', 'success');
+    } catch(e) {
+      console.error('Error subiendo extracto a Drive:', e);
+    }
   }
 
-  renderChecklist();
+  // Set period label
+  if (storageKey.length === 4) {
+    document.getElementById('results-period-label').textContent = 'Año ' + storageKey;
+  } else {
+    const [y, m] = storageKey.split('-');
+    document.getElementById('results-period-label').textContent = MONTHS_ES[parseInt(m)-1] + ' ' + y;
+  }
+
+  document.getElementById('extracto-analyzing').style.display = 'none';
+  showResults();
+  renderCalendar();
+
+  if (data.banco) showToast('📊 ' + data.banco + (data.periodo ? ' — ' + data.periodo : ''), 'success');
 }
 
 function renderChecklist() {
@@ -1596,10 +1851,10 @@ function updateChecklistStats() {
 
 function resetExtracto() {
   checklistData = [];
-  document.getElementById('extracto-upload-section').style.display = 'block';
-  document.getElementById('extracto-results').style.display = 'none';
-  document.getElementById('extracto-analyzing').style.display = 'none';
+  pendingExtractoFile = null;
+  pendingExtractoKey = null;
   document.getElementById('extracto-input').value = '';
+  backToCalendar();
 }
 
 // ══════════════════════════════════════════
