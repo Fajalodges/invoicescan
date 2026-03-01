@@ -236,7 +236,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.16</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.17</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -1054,6 +1054,7 @@ async function uploadInvoice(id) {
     };
     ledger.push(record);
     saveLedger();
+    rematchExtracto(record);
 
     renderQueue();
     showToast(`✓ ${fileName} subido`, 'success');
@@ -1403,6 +1404,39 @@ let calendarYear = (() => {
 })();
 let pendingExtractoFile = null; // file waiting for replace confirmation
 let pendingExtractoKey = null;
+
+// ── AUTO-REMATCH: when a new invoice is uploaded, re-check extracto movements ──
+function rematchExtracto(record) {
+  if (!record.fecha || !record.proveedor) return;
+  const monthKey = record.fecha.slice(0, 7);
+  const yearKey = record.fecha.slice(0, 4);
+  const ex = extractos[monthKey] || extractos[yearKey];
+  if (!ex || !ex.movimientos || ex.movimientos.length === 0) return;
+
+  const provNorm = p => (p || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const recProv = provNorm(record.proveedor);
+  const recMonto = parseFloat(record.monto) || 0;
+  let matched = 0;
+
+  ex.movimientos.forEach(m => {
+    if (m.tiene_factura) return; // already matched
+    const movProv = provNorm(m.proveedor);
+    // Match if provider name overlaps (one contains the other) and amount within 15%
+    const provMatch = recProv.length > 2 && (movProv.includes(recProv.slice(0,5)) || recProv.includes(movProv.slice(0,5)));
+    const montoMatch = recMonto > 0 && Math.abs(m.monto - recMonto) / Math.max(m.monto, recMonto) < 0.15;
+    if (provMatch && montoMatch) {
+      m.tiene_factura = true;
+      m.factura_ref = record.fileName || record.proveedor;
+      matched++;
+    }
+  });
+
+  if (matched > 0) {
+    saveExtractos();
+    renderCalendar();
+    showToast('🔄 ' + matched + ' movimiento' + (matched > 1 ? 's' : '') + ' cruzado' + (matched > 1 ? 's' : '') + ' con extracto', 'success');
+  }
+}
 
 function saveExtractos() {
   localStorage.setItem('fs_extractos', JSON.stringify(extractos));
