@@ -1391,7 +1391,16 @@ let extractoPeriod = 3;
 let checklistData = [];
 let checklistFilter = 'all';
 let extractos = JSON.parse(localStorage.getItem('fs_extractos') || '{}'); // key: "YYYY-MM" or "YYYY", value: {period, uploadedAt, driveLink, movimientos, banco}
-let calendarYear = new Date().getFullYear();
+let calendarYear = (() => {
+  const saved = JSON.parse(localStorage.getItem('fs_extractos') || '{}');
+  const keys = Object.keys(saved);
+  if (keys.length > 0) {
+    // Show year of most recent extracto
+    const years = keys.map(k => parseInt(k.slice(0,4))).filter(y => !isNaN(y));
+    return Math.max(...years);
+  }
+  return new Date().getFullYear();
+})();
 let pendingExtractoFile = null; // file waiting for replace confirmation
 let pendingExtractoKey = null;
 
@@ -1419,7 +1428,7 @@ function renderCalendar() {
     const monthKey = calendarYear + '-' + String(idx+1).padStart(2,'0');
     const yearKey = String(calendarYear);
     const ex = extractos[monthKey] || extractos[yearKey];
-    const isFuture = (calendarYear > now.getFullYear()) || (calendarYear === now.getFullYear() && idx > now.getMonth());
+    const isFuture = (calendarYear > now.getFullYear()) || (calendarYear === now.getFullYear() && (idx+1) > (now.getMonth()+1));
 
     // Count invoices for this month
     const monthInvoices = ledger.filter(r => r.fecha && r.fecha.startsWith(monthKey));
@@ -1788,8 +1797,18 @@ async function buildChecklist(data, file) {
       const fname = 'extracto_' + storageKey + '.' + ext;
       const blob = file;
       const mimeType = file.type || 'application/pdf';
-      const uploaded = await uploadFile(blob, mimeType, fname, folderId);
-      extractos[storageKey].driveLink = uploaded.webViewLink;
+      const metadata = { name: fname, parents: [folderId] };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', blob, fname);
+      const upRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + driveAccessToken },
+        body: form
+      });
+      const upData = await upRes.json();
+      extractos[storageKey].driveLink = upData.webViewLink || null;
+      extractos[storageKey].driveFileId = upData.id || null;
       saveExtractos();
       showToast('💳 Extracto guardado en Drive', 'success');
     } catch(e) {
