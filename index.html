@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FacturaScan</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0a; --surface: #141414; --surface2: #1e1e1e; --mono: DM Mono,monospace;
+      --border: #2a2a2a; --accent: #d4f500; --accent2: #a8c200;
+      --text: #f0f0f0; --muted: #666; --danger: #ff4444; --success: #44ff88;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100dvh; overflow-x: hidden; }
+
+    header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--bg); z-index: 100; gap: 10px; }
+    .logo { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; flex-shrink: 0; }
+    .logo span { color: var(--accent); }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+
+    .hbtn { display: flex; align-items: center; gap: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 7px 14px; border-radius: 100px; font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+    .hbtn:hover { border-color: var(--accent); color: var(--accent); }
+    .hbtn.connected { border-color: var(--success); color: var(--success); }
+    .hbtn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    /* TABS */
+    .tabs { display: flex; border-bottom: 1px solid var(--border); }
+    .tab { flex: 1; padding: 14px; text-align: center; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; transition: all .2s; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    main { max-width: 680px; margin: 0 auto; padding: 24px 16px 100px; }
+
+    /* PROJECTS */
+    .section-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .projects-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+    .project-chip { padding: 6px 14px; border-radius: 100px; border: 1px solid var(--border); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; background: transparent; color: var(--muted); }
+    .project-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .project-chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    #add-project-btn { padding: 6px 14px; border-radius: 100px; border: 1px dashed var(--border); font-size: 13px; cursor: pointer; background: transparent; color: var(--muted); transition: all .15s; }
+    #add-project-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* DROP ZONE */
+    .drop-zone { border: 2px dashed var(--border); border-radius: 20px; padding: 48px 20px; text-align: center; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; margin-bottom: 16px; }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(212,245,0,0.03); }
+    .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .drop-icon { font-size: 40px; margin-bottom: 12px; display: block; }
+    .drop-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .drop-sub { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+
+    #camera-btn { width: 100%; padding: 14px; background: var(--accent); color: #000; border: none; border-radius: 14px; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 28px; transition: all .15s; }
+    #camera-btn:hover { background: var(--accent2); }
+
+    /* QUEUE */
+    .queue { display: flex; flex-direction: column; gap: 14px; }
+    .invoice-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; animation: slideIn .3s ease; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .card-top { display: flex; gap: 14px; padding: 14px; }
+    .card-thumb { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--surface2); cursor: zoom-in; }
+    .card-meta { flex: 1; min-width: 0; }
+    .card-status { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .status-analyzing { color: #ffa500; } .status-ready { color: var(--success); } .status-uploading { color: #88aaff; } .status-done { color: var(--success); } .status-error { color: var(--danger); } .status-failed { color: #ff8800; }
+    .pulse { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+    .card-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+    .field-item { display: flex; flex-direction: column; gap: 1px; }
+    .field-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+    .field-value { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-bottom { border-top: 1px solid var(--border); padding: 10px 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .project-select { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 8px; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; min-width: 100px; }
+    .project-select:focus { outline: none; border-color: var(--accent); }
+    .upload-btn { padding: 7px 14px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .upload-btn:hover { background: var(--accent2); }
+    .upload-btn.secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .delete-btn { padding: 7px 10px; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .15s; }
+    .delete-btn:hover { border-color: var(--danger); color: var(--danger); }
+    .drive-path { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); background: var(--surface2); padding: 3px 8px; border-radius: 6px; display: inline-block; margin-top: 6px; }
+
+    /* UPLOAD ALL BAR */
+    #upload-all-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 14px 20px; background: var(--bg); border-top: 1px solid var(--border); display: none; justify-content: space-between; align-items: center; z-index: 200; }
+    #upload-all-bar.visible { display: flex; }
+    #upload-all-btn { background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 12px; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; cursor: pointer; }
+    #upload-all-btn:hover { background: var(--accent2); }
+    .upload-all-info { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+
+    /* LEDGER TAB */
+    .ledger-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .filter-select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 10px; font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; }
+    .filter-select:focus { outline: none; border-color: var(--accent); }
+
+    .ledger-table { width: 100%; border-collapse: collapse; }
+    .ledger-table th { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    .ledger-table td { padding: 10px 10px; font-size: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .ledger-table tr:hover td { background: var(--surface2); }
+    .ledger-row td:first-child { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+    .ledger-link { color: var(--accent); text-decoration: none; font-size: 11px; }
+    .ledger-link:hover { text-decoration: underline; }
+    .ledger-del { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; }
+    .ledger-del:hover { color: var(--danger); }
+    .ledger-empty { text-align: center; padding: 60px 20px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px; }
+
+    .ledger-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+    .summary-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .summary-value { font-size: 20px; font-weight: 800; }
+    .summary-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* MODALS */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 500; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 24px; width: 100%; max-width: 420px; transform: translateY(20px); transition: transform .2s; }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 14px; }
+    .modal input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 11px 13px; border-radius: 10px; font-family: 'Syne', sans-serif; font-size: 14px; margin-bottom: 10px; }
+    .modal input:focus { outline: none; border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 8px; }
+    .btn-primary { flex: 1; padding: 11px; background: var(--accent); color: #000; border: none; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; cursor: pointer; font-size: 14px; }
+    .btn-secondary { padding: 11px 14px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 10px; font-family: 'Syne', sans-serif; cursor: pointer; font-size: 14px; }
+
+    /* PREVIEW MODAL */
+    #preview-modal .modal { max-width: 500px; }
+    #preview-img { width: 100%; border-radius: 12px; margin-bottom: 14px; max-height: 300px; object-fit: contain; background: var(--surface2); }
+    .preview-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+
+    /* SETUP */
+    #setup-screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 999; }
+    .setup-box { max-width: 420px; width: 100%; }
+    .setup-box h1 { font-size: 32px; font-weight: 800; line-height: 1.1; margin-bottom: 8px; }
+    .setup-box h1 span { color: var(--accent); }
+    .setup-box p { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px; margin-bottom: 24px; line-height: 1.6; }
+    .setup-box label { display: block; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .setup-box input { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 13px 14px; border-radius: 12px; font-family: 'DM Mono', monospace; font-size: 12px; margin-bottom: 14px; }
+    .setup-box input:focus { outline: none; border-color: var(--accent); }
+    .setup-box button { width: 100%; padding: 15px; background: var(--accent); color: #000; border: none; border-radius: 12px; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800; cursor: pointer; }
+    .setup-note { margin-top: 12px; font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; text-align: center; }
+
+    /* TOAST */
+    #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--surface2); border: 1px solid var(--border); padding: 10px 18px; border-radius: 100px; font-family: 'DM Mono', monospace; font-size: 12px; z-index: 999; transition: transform .3s; white-space: nowrap; }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: var(--success); color: var(--success); }
+    #toast.error { border-color: var(--danger); color: var(--danger); }
+
+    .overflow-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 700; background: var(--surface2); border: 1px solid var(--border); }
+
+    /* EXTRACTO TAB */
+    .extracto-drop { border: 2px dashed var(--border); border-radius: 20px; padding: 48px 20px; text-align: center; cursor: pointer; transition: all .2s; position: relative; margin-bottom: 24px; }
+    .extracto-drop:hover, .extracto-drop.drag-over { border-color: #88aaff; background: rgba(136,170,255,0.03); }
+    .extracto-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .extracto-drop .drop-icon { color: #88aaff; }
+
+    .period-selector { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
+    .period-btn { padding: 7px 14px; border-radius: 100px; border: 1px solid var(--border); font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; color: var(--muted); transition: all .15s; }
+    .period-btn:hover { border-color: #88aaff; color: #88aaff; }
+    .period-btn.active { background: #88aaff; color: #000; border-color: #88aaff; }
+
+    .match-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+    .match-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
+    .match-stat .val { font-size: 24px; font-weight: 800; }
+    .match-stat .lbl { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+    .match-stat.ok .val { color: var(--success); }
+    .match-stat.warn .val { color: var(--danger); }
+    .match-stat.info .val { color: #88aaff; }
+
+    .checklist { display: flex; flex-direction: column; gap: 10px; }
+    .check-item { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; transition: all .2s; }
+    .check-item.found { border-color: rgba(68,255,136,0.3); background: rgba(68,255,136,0.04); }
+    .check-item.missing { border-color: rgba(255,68,68,0.3); background: rgba(255,68,68,0.04); }
+    .check-item.ignored { opacity: .4; }
+    .check-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+    .check-body { flex: 1; min-width: 0; }
+    .check-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .check-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 8px; }
+    .check-hint { font-size: 12px; color: var(--muted); background: var(--surface2); padding: 6px 10px; border-radius: 8px; margin-top: 6px; }
+    .check-hint strong { color: var(--text); }
+    .check-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .check-btn { padding: 5px 12px; border-radius: 100px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted); transition: all .15s; }
+    .check-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .check-btn.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+    .check-btn.danger { border-color: var(--danger); color: var(--danger); }
+    .source-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 700; border: 1px solid; }
+    .source-email { color: #88aaff; border-color: rgba(136,170,255,0.4); background: rgba(136,170,255,0.1); }
+    .source-whatsapp { color: #44ff88; border-color: rgba(68,255,136,0.4); background: rgba(68,255,136,0.1); }
+    .source-fisica { color: #ffaa44; border-color: rgba(255,170,68,0.4); background: rgba(255,170,68,0.1); }
+    .source-portal { color: #ff88cc; border-color: rgba(255,136,204,0.4); background: rgba(255,136,204,0.1); }
+    .amount-badge { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 700; color: var(--text); }
+    .analyzing-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; text-align: center; }
+    .analyzing-bar .spin { display: inline-block; font-size: 32px; animation: spin 1s linear infinite; margin-bottom: 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup-screen">
+  <div class="setup-box">
+    <h1>Factura<span>Scan</span></h1>
+    <p>Escaneá facturas → IA las analiza → se organizan solas en Google Drive por mes y proyecto.</p>
+    <label>API Key de Claude (Anthropic)</label>
+    <input type="password" id="claude-key-input" placeholder="sk-ant-api03-..." />
+    <label>Client ID de Google (OAuth)</label>
+    <input type="text" id="google-client-id-input" placeholder="xxxxxx.apps.googleusercontent.com" />
+    <button onclick="saveSetup()">Empezar →</button>
+    <p class="setup-note">🔒 Las claves se guardan solo en este dispositivo.</p>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Factura<span>Scan</span></div>
+  <div class="header-actions">
+    <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
+      <div class="dot"></div>
+      <span id="drive-label">Conectar Drive</span>
+    </button>
+    <button class="hbtn" onclick="resetSetup()" title="Configuración">⚙</button>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" id="tab-scan" onclick="switchTab('scan')">📷 Escanear</div>
+  <div class="tab" id="tab-ledger" onclick="switchTab('ledger')">📊 Registro</div>
+  <div class="tab" id="tab-extracto" onclick="switchTab('extracto')">💳 Extracto</div>
+</div>
+
+<!-- ═══ SCAN TAB ═══ -->
+<main id="view-scan">
+  <div style="height:16px"></div>
+  <div class="section-label">Proyecto</div>
+  <div class="projects-strip" id="projects-strip"></div>
+
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept="image/*,application/pdf" multiple />
+    <span class="drop-icon">🧾</span>
+    <div class="drop-title">Soltá fotos o PDFs acá</div>
+    <div class="drop-sub">JPG · PNG · HEIC · PDF · Múltiples a la vez</div>
+  </div>
+
+  <button id="camera-btn" onclick="document.getElementById('camera-input').click()">
+    📷 Sacar foto ahora
+  </button>
+  <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" />
+
+  <div class="section-label" id="queue-label" style="display:none">Cola de facturas</div>
+  <div class="queue" id="queue"></div>
+</main>
+
+<!-- ═══ LEDGER TAB ═══ -->
+<main id="view-ledger" style="display:none">
+  <div style="height:16px"></div>
+
+  <div class="ledger-summary">
+    <div class="summary-card">
+      <div class="summary-label">Total facturas</div>
+      <div class="summary-value" id="stat-count">0</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Este mes</div>
+      <div class="summary-value" id="stat-month">0</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Proyectos</div>
+      <div class="summary-value" id="stat-projects">0</div>
+    </div>
+  </div>
+
+  <div class="ledger-filters">
+    <select class="filter-select" id="filter-month" onchange="renderLedger()">
+      <option value="">Todos los meses</option>
+    </select>
+    <select class="filter-select" id="filter-project" onchange="renderLedger()">
+      <option value="">Todos los proyectos</option>
+    </select>
+    <button class="hbtn" onclick="exportSheetNow()" style="margin-left:auto">📊 Actualizar Sheet</button>
+  </div>
+
+  <div class="overflow-x">
+    <table class="ledger-table" id="ledger-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Proveedor</th>
+          <th>Monto</th>
+          <th>Nº Factura</th>
+          <th>Proyecto</th>
+          <th>Drive</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="ledger-body"></tbody>
+    </table>
+    <div class="ledger-empty" id="ledger-empty" style="display:none">No hay facturas subidas todavía</div>
+  </div>
+</main>
+
+<!-- ═══ EXTRACTO TAB ═══ -->
+<main id="view-extracto" style="display:none">
+  <div style="height:16px"></div>
+
+  <div id="extracto-upload-section">
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.7">
+      Subí el extracto bancario del período que querés revisar. Claude va a comparar cada movimiento con las facturas que ya subiste y te va a decir exactamente qué falta y dónde buscarlo.
+    </p>
+
+    <div class="extracto-drop" id="extracto-drop">
+      <input type="file" id="extracto-input" accept=".pdf,.csv,.xlsx,.xls,image/*" />
+      <span class="drop-icon" style="font-size:40px;display:block;margin-bottom:12px">💳</span>
+      <div class="drop-title">Subí tu extracto bancario</div>
+      <div class="drop-sub" style="margin-top:6px">PDF · CSV · Excel · Imagen — cualquier banco</div>
+    </div>
+
+    <div class="period-selector">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Período:</span>
+      <button class="period-btn" onclick="setPeriod(1)">Este mes</button>
+      <button class="period-btn active" onclick="setPeriod(3)">3 meses</button>
+      <button class="period-btn" onclick="setPeriod(6)">6 meses</button>
+      <button class="period-btn" onclick="setPeriod(12)">1 año</button>
+    </div>
+  </div>
+
+  <div id="extracto-analyzing" style="display:none">
+    <div class="analyzing-bar">
+      <div class="spin">⚙</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">Analizando extracto...</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted)" id="analyzing-status">Leyendo movimientos bancarios</div>
+    </div>
+  </div>
+
+  <div id="extracto-results" style="display:none">
+    <div class="match-stats">
+      <div class="match-stat ok">
+        <div class="val" id="stat-found">0</div>
+        <div class="lbl">Con factura ✓</div>
+      </div>
+      <div class="match-stat warn">
+        <div class="val" id="stat-missing">0</div>
+        <div class="lbl">Faltan ⚠</div>
+      </div>
+      <div class="match-stat info">
+        <div class="val" id="stat-total-movements">0</div>
+        <div class="lbl">Movimientos</div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div class="section-label" style="margin:0">Checklist de facturas</div>
+      <div style="display:flex;gap:6px">
+        <button class="check-btn" onclick="filterChecklist('all')" id="cf-all" style="border-color:var(--accent);color:var(--accent)">Todos</button>
+        <button class="check-btn" onclick="filterChecklist('missing')" id="cf-missing">Faltan</button>
+        <button class="check-btn" onclick="filterChecklist('found')" id="cf-found">OK</button>
+      </div>
+    </div>
+
+    <div class="checklist" id="checklist-container"></div>
+
+    <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="hbtn" onclick="resetExtracto()" style="flex:1;justify-content:center">↺ Nuevo extracto</button>
+      <button class="hbtn" onclick="switchTab('scan')" style="flex:1;justify-content:center;background:var(--accent);color:#000;border-color:var(--accent)">📷 Ir a escanear</button>
+    </div>
+  </div>
+</main>
+
+<!-- UPLOAD ALL BAR -->
+<div id="upload-all-bar">
+  <div class="upload-all-info" id="upload-all-info"></div>
+  <button id="upload-all-btn" onclick="uploadAll()">⬆ Subir todas</button>
+</div>
+
+<!-- ADD PROJECT MODAL -->
+<div class="modal-overlay" id="project-modal">
+  <div class="modal">
+    <h3>Nuevo proyecto</h3>
+    <input type="text" id="new-project-name" placeholder="Ej: House Ash" maxlength="40" />
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('project-modal')">Cancelar</button>
+      <button class="btn-primary" onclick="addProject()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW MODAL -->
+<div class="modal-overlay" id="preview-modal">
+  <div class="modal" id="preview-modal-inner">
+    <img id="preview-img" src="" alt="" />
+    <div id="preview-pdf-label" style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:10px;display:none"></div>
+    <div class="preview-fields" id="preview-fields"></div>
+    <div class="drive-path" id="preview-path" style="margin-bottom:14px;display:block;word-break:break-all;white-space:normal"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('preview-modal')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <h3>¿Borrar factura?</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Se borrará de Drive y del registro. Esta acción no se puede deshacer.</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('delete-modal')">Cancelar</button>
+      <button class="btn-primary" style="background:var(--danger);color:#fff" onclick="confirmDelete()">Borrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let projects = JSON.parse(localStorage.getItem('fs_projects') || '["House Ash","House Lili","General"]');
+let activeProject = projects[0];
+let invoices = []; // current scan queue
+let ledger = JSON.parse(localStorage.getItem('fs_ledger') || '[]'); // persistent uploaded records
+let driveConnected = false;
+let driveAccessToken = null;
+let claudeKey = '';
+let googleClientId = '';
+let deleteTargetId = null;
+let currentTab = 'scan';
+
+const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// ══════════════════════════════════════════
+// SETUP
+// ══════════════════════════════════════════
+function saveSetup() {
+  claudeKey = document.getElementById('claude-key-input').value.trim();
+  googleClientId = document.getElementById('google-client-id-input').value.trim();
+  if (!claudeKey || !googleClientId) { alert('Ingresá ambas claves'); return; }
+  localStorage.setItem('fs_claude_key', claudeKey);
+  localStorage.setItem('fs_google_client_id', googleClientId);
+  document.getElementById('setup-screen').style.display = 'none';
+  init();
+}
+
+function loadKeys() {
+  claudeKey = localStorage.getItem('fs_claude_key') || '';
+  googleClientId = localStorage.getItem('fs_google_client_id') || '';
+  if (claudeKey && googleClientId) {
+    document.getElementById('setup-screen').style.display = 'none';
+    init();
+  }
+}
+
+function resetSetup() {
+  if (!confirm('¿Querés cambiar las claves de configuración?')) return;
+  document.getElementById('setup-screen').style.display = 'flex';
+  document.getElementById('claude-key-input').value = claudeKey;
+  document.getElementById('google-client-id-input').value = googleClientId;
+}
+
+function init() {
+  renderProjects();
+  loadGoogleAPI();
+  renderLedger();
+  updateLedgerFilters();
+}
+
+// ══════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('view-scan').style.display = tab === 'scan' ? 'block' : 'none';
+  document.getElementById('view-ledger').style.display = tab === 'ledger' ? 'block' : 'none';
+  document.getElementById('view-extracto').style.display = tab === 'extracto' ? 'block' : 'none';
+  document.getElementById('tab-scan').classList.toggle('active', tab === 'scan');
+  document.getElementById('tab-ledger').classList.toggle('active', tab === 'ledger');
+  document.getElementById('tab-extracto').classList.toggle('active', tab === 'extracto');
+  if (tab === 'ledger') { renderLedger(); updateLedgerFilters(); }
+}
+
+// ══════════════════════════════════════════
+// PROJECTS
+// ══════════════════════════════════════════
+function renderProjects() {
+  const strip = document.getElementById('projects-strip');
+  strip.innerHTML = '';
+  projects.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'project-chip' + (p === activeProject ? ' active' : '');
+    btn.textContent = p;
+    btn.onclick = () => { activeProject = p; renderProjects(); };
+    strip.appendChild(btn);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.id = 'add-project-btn';
+  addBtn.textContent = '+ proyecto';
+  addBtn.onclick = () => openModal('project-modal');
+  strip.appendChild(addBtn);
+}
+
+function addProject() {
+  const name = document.getElementById('new-project-name').value.trim();
+  if (!name) return;
+  if (!projects.includes(name)) {
+    projects.push(name);
+    localStorage.setItem('fs_projects', JSON.stringify(projects));
+  }
+  activeProject = name;
+  closeModal('project-modal');
+  renderProjects();
+  document.getElementById('new-project-name').value = '';
+}
+
+// ══════════════════════════════════════════
+// FILE INPUT
+// ══════════════════════════════════════════
+document.getElementById('file-input').addEventListener('change', e => handleFiles(e.target.files));
+document.getElementById('camera-input').addEventListener('change', e => handleFiles(e.target.files));
+
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+
+async function handleFiles(files) {
+  for (const file of files) {
+    if (file.type === 'application/pdf') {
+      await handlePDF(file);
+    } else {
+      const dataUrl = await readFile(file);
+      const invoice = { id: Date.now() + Math.random(), file, dataUrl, status: 'analyzing', data: null, project: activeProject };
+      invoices.push(invoice);
+      renderQueue();
+      queueAnalyze(invoice);
+    }
+  }
+}
+
+async function handlePDF(file) {
+  showToast('📄 Procesando PDF...');
+  try {
+    const dataUrl = await readFile(file);
+    const base64 = dataUrl.split(',')[1];
+    if (!window.pdfjsLib) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+    const pdfData = atob(base64);
+    const pdfArray = new Uint8Array(pdfData.length);
+    for (let i = 0; i < pdfData.length; i++) pdfArray[i] = pdfData.charCodeAt(i);
+    const pdf = await pdfjsLib.getDocument({ data: pdfArray }).promise;
+    showToast(`📄 PDF con ${pdf.numPages} pág. — detectando facturas...`);
+
+    // Render all pages
+    const pageImages = [];
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 2.0 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      pageImages.push(canvas.toDataURL('image/jpeg', 0.85));
+    }
+
+    // If single page — treat as single invoice directly
+    if (pdf.numPages === 1) {
+      const invoice = {
+        id: Date.now() + Math.random(), file,
+        dataUrl: pageImages[0], allPages: pageImages,
+        status: 'analyzing', data: null, project: activeProject,
+        pdfSource: file.name + ' — 1 pág.', isPDF: true
+      };
+      invoices.push(invoice); renderQueue(); queueAnalyze(invoice);
+      return;
+    }
+
+    // Multi-page: ask Claude if this is one invoice or multiple
+    showToast('🔍 Detectando cuántas facturas hay...');
+    const detectImages = pageImages.slice(0, 8).map(p => ({
+      type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: p.split(',')[1] }
+    }));
+
+    const detectRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': claudeKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
+        messages: [{
+          role: 'user',
+          content: [
+            ...detectImages,
+            { type: 'text', text: 'Este PDF tiene ' + pdf.numPages + ' paginas en total (te muestro hasta 8). Es UNA sola factura de multiples paginas, o un BATCH con varias facturas distintas? Si es batch indica en que paginas empieza y termina cada factura. Responde SOLO JSON: {"tipo":"single" o "batch","facturas":[{"pagina_inicio":1,"pagina_fin":1},{"pagina_inicio":2,"pagina_fin":2}]}' }
+          ]
+        }]
+      })
+    });
+
+    const detectData = await detectRes.json();
+    const detectText = detectData.content?.map(c => c.text || '').join('') || '';
+    let detection;
+    try {
+      detection = JSON.parse(detectText.replace(/```json|```/g, '').trim());
+    } catch(e) {
+      detection = { tipo: 'single' };
+    }
+
+    if (detection.tipo === 'single' || !detection.facturas || detection.facturas.length <= 1) {
+      // Single invoice — keep as one card, upload original PDF
+      const invoice = {
+        id: Date.now() + Math.random(), file,
+        dataUrl: pageImages[0], allPages: pageImages,
+        status: 'analyzing', data: null, project: activeProject,
+        pdfSource: file.name + ' — ' + pdf.numPages + ' pág.', isPDF: true
+      };
+      invoices.push(invoice); renderQueue(); queueAnalyze(invoice);
+    } else {
+      // Batch — create one card per detected invoice
+      showToast('📑 Batch detectado: ' + detection.facturas.length + ' facturas');
+      for (let idx = 0; idx < detection.facturas.length; idx++) {
+        const f = detection.facturas[idx];
+        const start = (f.pagina_inicio || 1) - 1;
+        const end = Math.min((f.pagina_fin || f.pagina_inicio || 1), pdf.numPages);
+        const pages = pageImages.slice(start, end);
+        if (pages.length === 0) continue;
+        const invoice = {
+          id: Date.now() + Math.random() + idx,
+          file: { name: file.name + '_f' + (idx+1), type: 'image/jpeg' },
+          dataUrl: pages[0], allPages: pages,
+          status: 'analyzing', data: null, project: activeProject,
+          pdfSource: file.name + ' — factura ' + (idx+1) + '/' + detection.facturas.length,
+          isPDF: false  // upload as image since it's a subset of pages
+        };
+        invoices.push(invoice); renderQueue();
+        await new Promise(r => setTimeout(r, 200));
+        queueAnalyze(invoice);
+      }
+    }
+  } catch (err) {
+    console.error('PDF error:', err);
+    showToast('Error procesando el PDF', 'error');
+  }
+}
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+function readFile(file) {
+  return new Promise(res => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.readAsDataURL(file);
+  });
+}
+
+// ══════════════════════════════════════════
+// CLAUDE ANALYSIS
+// ══════════════════════════════════════════
+let analyzeQueue = [];
+let analyzing = false;
+
+function retryInvoice(id) {
+  const inv = invoices.find(i => i.id == id);
+  if (!inv) return;
+  inv.status = 'analyzing'; inv.data = null;
+  renderQueue();
+  queueAnalyze(inv);
+}
+
+function queueAnalyze(invoice) {
+  analyzeQueue.push(invoice);
+  if (!analyzing) processAnalyzeQueue();
+}
+
+async function processAnalyzeQueue() {
+  analyzing = true;
+  while (analyzeQueue.length > 0) {
+    const inv = analyzeQueue.shift();
+    if (inv.status === 'analyzing') {
+      await analyzeInvoice(inv);
+      if (analyzeQueue.length > 0) await new Promise(r => setTimeout(r, 600));
+    }
+  }
+  analyzing = false;
+}
+
+async function analyzeInvoice(invoice) {
+  try {
+    const base64 = invoice.dataUrl.split(',')[1];
+    const mediaType = invoice.file.type === 'application/pdf' ? 'image/jpeg' : (invoice.file.type || 'image/jpeg');
+
+    const imageContent = invoice.allPages
+      ? invoice.allPages.map(p => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: p.split(',')[1] } }))
+      : [{ type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } }];
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': claudeKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        messages: [{
+          role: 'user',
+          content: [
+            ...imageContent,
+            { type: 'text', text: 'Analizá esta factura/recibo. IMPORTANTE: el formato numérico es europeo/portugués donde el punto "." separa miles y la coma "," separa decimales. Ejemplo: 1.234,56 = €1234.56. El PROVEEDOR es quien EMITE la factura (el vendedor, quien tiene el logo y firma el documento), NO quien la recibe. Respondé SOLO con JSON válido sin markdown:\n{"fecha":"YYYY-MM-DD","proveedor":"nombre del EMISOR/VENDEDOR (no del comprador)","monto":"importe total en formato €1234.56 (punto decimal, sin separador de miles)","numero_factura":"número o null","proyecto_sugerido":"nombre de proyecto si aparece en la factura o null"}\nSi no podés leer un campo usá null.' }
+          ]
+        }]
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message);
+    const text = result.content?.map(c => c.text || '').join('') || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(clean);
+    invoice.data = data;
+    invoice.status = 'ready';
+
+    if (data.proyecto_sugerido) {
+      const match = projects.find(p =>
+        p.toLowerCase().includes(data.proyecto_sugerido.toLowerCase()) ||
+        data.proyecto_sugerido.toLowerCase().includes(p.toLowerCase())
+      );
+      if (match) invoice.project = match;
+    }
+    renderQueue();
+  } catch (err) {
+    console.error(err);
+    invoice.status = 'error';
+    invoice.data = { proveedor: 'Error de análisis', fecha: null, monto: null, numero_factura: null };
+    renderQueue();
+  }
+}
+
+// ══════════════════════════════════════════
+// RENDER QUEUE
+// ══════════════════════════════════════════
+function renderQueue() {
+  const container = document.getElementById('queue');
+  const label = document.getElementById('queue-label');
+  const bar = document.getElementById('upload-all-bar');
+  const info = document.getElementById('upload-all-info');
+
+  label.style.display = invoices.length > 0 ? 'block' : 'none';
+  container.innerHTML = '';
+
+  invoices.forEach(inv => {
+    const card = document.createElement('div');
+    card.className = 'invoice-card';
+
+    const statusMap = {
+      analyzing: '<span class="pulse"></span> Analizando...',
+      ready: '✓ Listo para subir',
+      uploading: '<span class="pulse"></span> Subiendo...',
+      done: '✓ Subido a Drive',
+      error: '✗ Error de lectura',
+      failed: '⚠ Subido (sin leer)'
+    };
+
+    const d = inv.data || {};
+    const fecha = d.fecha ? formatFecha(d.fecha) : '—';
+    const path = buildPath(inv);
+
+    card.innerHTML = `
+      <div class="card-top">
+        <img class="card-thumb" src="${inv.dataUrl}" alt="factura" onclick="openPreview(${inv.id})" />
+        <div class="card-meta">
+          <div class="card-status status-${inv.status}">${statusMap[inv.status] || inv.status}</div>
+          ${inv.pdfSource ? `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:4px">📄 ${inv.pdfSource}</div>` : ''}
+          <div class="card-fields">
+            <div class="field-item"><div class="field-label">Proveedor</div><div class="field-value">${d.proveedor || '—'}</div></div>
+            <div class="field-item"><div class="field-label">Fecha</div><div class="field-value">${fecha}</div></div>
+            <div class="field-item"><div class="field-label">Monto</div><div class="field-value">${d.monto || '—'}</div></div>
+            <div class="field-item"><div class="field-label">Nº Factura</div><div class="field-value">${d.numero_factura || '—'}</div></div>
+          </div>
+          ${inv.status === 'ready' ? `<div class="drive-path">📁 ${path}</div>` : ''}
+        </div>
+      </div>
+      <div class="card-bottom">
+        <select class="project-select" onchange="changeProject(${inv.id}, this.value)">
+          ${projects.map(p => `<option ${p === inv.project ? 'selected' : ''}>${p}</option>`).join('')}
+        </select>
+        ${inv.status === 'ready' ? `<button class="upload-btn" onclick="uploadInvoice(${inv.id})">⬆ Subir</button>` : ''}
+        ${inv.status === 'done' || inv.status === 'failed' ? `<span style="color:var(--success);font-size:12px;font-weight:700">✓ En Drive</span>` : ''}
+        ${inv.status === 'error' ? `
+          <button class="upload-btn secondary" onclick="retryInvoice(${inv.id})">↺ Reintentar</button>
+          <button class="upload-btn" style="background:#ff8800" onclick="uploadFailed(${inv.id})">⬆ Subir igual</button>
+        ` : ''}
+        <button class="delete-btn" onclick="removeInvoice(${inv.id})">🗑</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  const ready = invoices.filter(i => i.status === 'ready').length;
+  bar.classList.toggle('visible', ready > 0);
+  if (ready > 0) info.textContent = `${ready} factura${ready !== 1 ? 's' : ''} lista${ready !== 1 ? 's' : ''}`;
+}
+
+function formatFecha(str) {
+  if (!str) return '—';
+  try { const [y, m, d] = str.split('-'); return `${d}/${m}/${y}`; }
+  catch { return str; }
+}
+
+function buildPath(inv, failed = false) {
+  if (failed) return `Facturas/invoices-failed-to-read`;
+  const d = inv.data || {};
+  if (!d.fecha) return `Facturas/${inv.project}/Sin fecha`;
+  const [y, m] = d.fecha.split('-');
+  const mes = MONTHS_ES[parseInt(m)-1] || m;
+  return `Facturas/${y}/${mes}/${inv.project}`;
+}
+
+function buildFileName(inv, ext, failed = false) {
+  ext = ext || 'jpg';
+  if (failed) {
+    const ts = new Date().toISOString().slice(0,10);
+    return `${ts}_${inv.file.name || 'factura'}.${ext}`;
+  }
+  const d = inv.data || {};
+  const fecha = d.fecha || 'sin-fecha';
+  const prov = String(d.proveedor || 'proveedor').replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '').trim().replace(/\s+/g, '-');
+  const monto = String(d.monto || '').replace(/[^0-9.,]/g, '');
+  const nro = String(d.numero_factura || '').replace(/[^a-zA-Z0-9]/g, '');
+  return `${fecha}_${prov}${monto ? '_' + monto : ''}${nro ? '_F' + nro : ''}.${ext}`;
+}
+
+function changeProject(id, project) {
+  const inv = invoices.find(i => i.id == id);
+  if (inv) { inv.project = project; renderQueue(); }
+}
+
+function removeInvoice(id) {
+  invoices = invoices.filter(i => i.id != id);
+  renderQueue();
+}
+
+// ══════════════════════════════════════════
+// GOOGLE DRIVE
+// ══════════════════════════════════════════
+function loadGoogleAPI() {
+  const script = document.createElement('script');
+  script.src = 'https://accounts.google.com/gsi/client';
+  document.head.appendChild(script);
+}
+
+function toggleDriveAuth() {
+  if (driveConnected) {
+    driveConnected = false; driveAccessToken = null;
+    document.getElementById('drive-btn').classList.remove('connected');
+    document.getElementById('drive-label').textContent = 'Conectar Drive';
+    showToast('Drive desconectado');
+    return;
+  }
+  requestDriveToken();
+}
+
+function requestDriveToken() {
+  if (!window.google) { showToast('Recargá la página e intentá de nuevo', 'error'); return; }
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: googleClientId,
+    scope: 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets',
+    callback: (tokenResponse) => {
+      if (tokenResponse.error) { showToast('Error al conectar Drive', 'error'); return; }
+      driveAccessToken = tokenResponse.access_token;
+      driveConnected = true;
+      document.getElementById('drive-btn').classList.add('connected');
+      document.getElementById('drive-label').textContent = 'Drive conectado';
+      showToast('✓ Google Drive conectado', 'success');
+    }
+  });
+  client.requestAccessToken();
+}
+
+// Always create a new subfolder (never reuse by name except within app-owned root)
+async function createFolder(name, parentId) {
+  const meta = { name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] };
+  const res = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${driveAccessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(meta)
+  });
+  const data = await res.json();
+  if (data.error) throw new Error('Error creando carpeta: ' + data.error.message);
+  return data.id;
+}
+
+// Get or create folder ONLY within a known parent (never search globally)
+async function getOrCreateSubfolder(name, parentId) {
+  const q = `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+  const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`, {
+    headers: { Authorization: `Bearer ${driveAccessToken}` }
+  });
+  const searchData = await searchRes.json();
+  if (searchData.files?.length > 0) return searchData.files[0].id;
+  return createFolder(name, parentId);
+}
+
+// Get the app's own root folder — stored by Drive file ID so we never confuse it with other folders
+async function getAppRootFolder() {
+  const storedId = localStorage.getItem('fs_root_folder_id');
+  if (storedId) {
+    // Verify it still exists
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${storedId}?fields=id,trashed`, {
+        headers: { Authorization: `Bearer ${driveAccessToken}` }
+      });
+      const data = await res.json();
+      if (data.id && !data.trashed) return storedId;
+    } catch(e) {}
+    // Folder was deleted, clear stored ID
+    localStorage.removeItem('fs_root_folder_id');
+  }
+  // Create a brand new root folder
+  const id = await createFolder('FacturaScan', null);
+  localStorage.setItem('fs_root_folder_id', id);
+  showToast('📁 Carpeta FacturaScan creada en Drive', 'success');
+  return id;
+}
+
+// Legacy alias used in old code paths
+async function getOrCreateFolder(name, parentId = null) {
+  if (!parentId) return getAppRootFolder();
+  return getOrCreateSubfolder(name, parentId);
+}
+
+async function uploadFile(blob, mimeType, fileName, folderId) {
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify({ name: fileName, parents: [folderId] })], { type: 'application/json' }));
+  form.append('file', new Blob([await blob.arrayBuffer()], { type: mimeType }));
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${driveAccessToken}` },
+    body: form
+  });
+  return res.json();
+}
+
+async function uploadInvoice(id) {
+  if (!driveConnected) { showToast('Conectá Google Drive primero', 'error'); requestDriveToken(); return; }
+  const inv = invoices.find(i => i.id == id);
+  if (!inv || inv.status !== 'ready') return;
+  inv.status = 'uploading';
+  renderQueue();
+  try {
+    const rootId = await getAppRootFolder();
+    const d = inv.data || {};
+    let folderId = rootId;
+    let year = null, month = null;
+
+    if (d.fecha) {
+      const [y, m] = d.fecha.split('-');
+      year = y; month = m;
+      const yearId = await getOrCreateFolder(y, rootId);
+      const mes = MONTHS_ES[parseInt(m)-1] || m;
+      const monthId = await getOrCreateFolder(mes, yearId);
+      folderId = await getOrCreateFolder(inv.project, monthId);
+    } else {
+      folderId = await getOrCreateFolder(inv.project, rootId);
+    }
+
+    const ext = inv.isPDF ? 'pdf' : 'jpg';
+    const fileName = buildFileName(inv, ext);
+    const blob = inv.isPDF ? inv.file : await (await fetch(inv.dataUrl)).blob();
+    const mimeType = inv.isPDF ? 'application/pdf' : 'image/jpeg';
+    const uploaded = await uploadFile(blob, mimeType, fileName, folderId);
+
+    inv.status = 'done';
+    inv.driveLink = uploaded.webViewLink;
+    inv.driveFileId = uploaded.id;
+
+    // Add to ledger
+    const record = {
+      id: inv.id,
+      fecha: d.fecha || null,
+      proveedor: d.proveedor || '',
+      monto: d.monto || '',
+      numero_factura: d.numero_factura || '',
+      proyecto: inv.project,
+      driveLink: uploaded.webViewLink,
+      driveFileId: uploaded.id,
+      uploadedAt: new Date().toISOString()
+    };
+    ledger.push(record);
+    saveLedger();
+
+    renderQueue();
+    showToast(`✓ ${fileName} subido`, 'success');
+
+    // Update sheets in background
+    updateSheets(record).catch(e => console.error('Sheet update error:', e));
+
+  } catch (err) {
+    console.error(err);
+    inv.status = 'ready';
+    renderQueue();
+    showToast('Error al subir, intentá de nuevo', 'error');
+  }
+}
+
+async function uploadFailed(id) {
+  if (!driveConnected) { showToast('Conectá Google Drive primero', 'error'); requestDriveToken(); return; }
+  const inv = invoices.find(i => i.id == id);
+  if (!inv) return;
+  inv.status = 'uploading';
+  renderQueue();
+  try {
+    const rootId = await getAppRootFolder();
+    const failedId = await getOrCreateFolder('invoices-failed-to-read', rootId);
+    const ext = inv.isPDF ? 'pdf' : 'jpg';
+    const ts = new Date().toISOString().slice(0,10);
+    const fileName = `${ts}_${String(inv.file.name || 'factura').replace(/[^a-zA-Z0-9._-]/g,'_')}.${ext}`;
+    const blob = inv.isPDF ? inv.file : await (await fetch(inv.dataUrl)).blob();
+    const mimeType = inv.isPDF ? 'application/pdf' : 'image/jpeg';
+    const uploaded = await uploadFile(blob, mimeType, fileName, failedId);
+    inv.status = 'failed';
+    inv.driveLink = uploaded.webViewLink;
+    renderQueue();
+    showToast('⚠ Subido a carpeta de errores', 'success');
+  } catch (err) {
+    console.error(err);
+    inv.status = 'error';
+    renderQueue();
+    showToast('Error al subir', 'error');
+  }
+}
+
+async function uploadAll() {
+  if (!driveConnected) { requestDriveToken(); return; }
+  const ready = invoices.filter(i => i.status === 'ready');
+  for (const inv of ready) await uploadInvoice(inv.id);
+}
+
+// ══════════════════════════════════════════
+// GOOGLE SHEETS
+// ══════════════════════════════════════════
+const SHEET_HEADERS = ['Fecha', 'Proveedor', 'Monto', 'Nº Factura', 'Proyecto', 'Link en Drive', 'Fecha de subida'];
+
+async function getOrCreateSheet(name, folderId) {
+  // Search for existing sheet
+  const q = `name='${name}' and mimeType='application/vnd.google-apps.spreadsheet' and '${folderId}' in parents and trashed=false`;
+  const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`, {
+    headers: { Authorization: `Bearer ${driveAccessToken}` }
+  });
+  const searchData = await searchRes.json();
+  if (searchData.files?.length > 0) return searchData.files[0].id;
+
+  // Create new spreadsheet via Sheets API directly (more reliable)
+  const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${driveAccessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ properties: { title: name } })
+  });
+  const created = await createRes.json();
+  if (created.error) { console.error('Sheet create error:', created.error); throw new Error(created.error.message); }
+  const sheetId = created.spreadsheetId;
+
+  // Move to correct folder
+  await fetch(`https://www.googleapis.com/drive/v3/files/${sheetId}?addParents=${folderId}&removeParents=root&fields=id`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${driveAccessToken}` }
+  });
+
+  // Add headers row
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/A1?valueInputOption=USER_ENTERED`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${driveAccessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [SHEET_HEADERS] })
+  });
+
+  return sheetId;
+}
+
+async function appendToSheet(sheetId, rows) {
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${driveAccessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: rows })
+  });
+  const data = await res.json();
+  if (data.error) console.error('appendToSheet error:', data.error);
+  return data;
+}
+
+async function updateSheets(record) {
+  if (!driveConnected) return;
+  const rootId = await getOrCreateFolder('Facturas');
+  const row = [
+    record.fecha || '',
+    record.proveedor || '',
+    record.monto || '',
+    record.numero_factura || '',
+    record.proyecto || '',
+    record.driveLink || '',
+    new Date(record.uploadedAt).toLocaleDateString('es')
+  ];
+
+  // Annual sheet
+  if (record.fecha) {
+    const [y, m] = record.fecha.split('-');
+    const yearId = await getOrCreateFolder(y, rootId);
+    const annualSheetId = await getOrCreateSheet(`Facturas_${y}`, yearId);
+    await appendToSheet(annualSheetId, [row]);
+
+    // Monthly sheet
+    const mes = MONTHS_ES[parseInt(m)-1] || m;
+    const monthId = await getOrCreateFolder(mes, yearId);
+    const monthlySheetId = await getOrCreateSheet(`Facturas_${mes}_${y}`, monthId);
+    await appendToSheet(monthlySheetId, [row]);
+  } else {
+    // No date — only add to a general sheet
+    const generalSheetId = await getOrCreateSheet(`Facturas_sin_fecha`, rootId);
+    await appendToSheet(generalSheetId, [row]);
+  }
+}
+
+async function exportSheetNow() {
+  if (!driveConnected) { showToast('Conectá Google Drive primero', 'error'); requestDriveToken(); return; }
+  showToast('Actualizando sheets...');
+  // Rebuild sheets from full ledger — grouped by year/month
+  const byYear = {};
+  ledger.forEach(r => {
+    if (!r.fecha) return;
+    const [y, m] = r.fecha.split('-');
+    if (!byYear[y]) byYear[y] = {};
+    if (!byYear[y][m]) byYear[y][m] = [];
+    byYear[y][m].push(r);
+  });
+
+  try {
+    const rootId = await getAppRootFolder();
+    for (const [year, months] of Object.entries(byYear)) {
+      const yearId = await getOrCreateFolder(year, rootId);
+      const annualRows = [SHEET_HEADERS];
+      for (const [month, records] of Object.entries(months)) {
+        const mes = MONTHS_ES[parseInt(month)-1] || month;
+        const monthId = await getOrCreateFolder(mes, yearId);
+        const monthlyRows = [SHEET_HEADERS, ...records.map(r => [r.fecha||'', r.proveedor||'', r.monto||'', r.numero_factura||'', r.proyecto||'', r.driveLink||'', new Date(r.uploadedAt).toLocaleDateString('es')])];
+        // Overwrite monthly sheet
+        const mSheetId = await getOrCreateSheet(`Facturas_${mes}_${year}`, monthId);
+        await overwriteSheet(mSheetId, monthlyRows);
+        annualRows.push(...records.map(r => [r.fecha||'', r.proveedor||'', r.monto||'', r.numero_factura||'', r.proyecto||'', r.driveLink||'', new Date(r.uploadedAt).toLocaleDateString('es')]));
+      }
+      const aSheetId = await getOrCreateSheet(`Facturas_${year}`, yearId);
+      await overwriteSheet(aSheetId, annualRows);
+    }
+    showToast('✓ Sheets actualizados', 'success');
+  } catch(e) {
+    console.error(e);
+    showToast('Error actualizando sheets', 'error');
+  }
+}
+
+async function overwriteSheet(sheetId, rows) {
+  // First clear
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/A1:Z10000:clear`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${driveAccessToken}`, 'Content-Type': 'application/json' }
+  });
+  // Then write
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/A1?valueInputOption=USER_ENTERED`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${driveAccessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: rows })
+  });
+  const data = await res.json();
+  if (data.error) console.error('overwriteSheet error:', data.error);
+  return data;
+}
+
+// ══════════════════════════════════════════
+// LEDGER
+// ══════════════════════════════════════════
+function saveLedger() {
+  localStorage.setItem('fs_ledger', JSON.stringify(ledger));
+}
+
+function updateLedgerFilters() {
+  const monthSel = document.getElementById('filter-month');
+  const projSel = document.getElementById('filter-project');
+  const months = [...new Set(ledger.filter(r => r.fecha).map(r => r.fecha.slice(0,7)))].sort().reverse();
+  const projs = [...new Set(ledger.map(r => r.proyecto).filter(Boolean))];
+
+  const curMonth = monthSel.value;
+  const curProj = projSel.value;
+
+  monthSel.innerHTML = '<option value="">Todos los meses</option>' + months.map(m => {
+    const [y, mo] = m.split('-');
+    const label = `${MONTHS_ES[parseInt(mo)-1]} ${y}`;
+    return `<option value="${m}" ${m === curMonth ? 'selected' : ''}>${label}</option>`;
+  }).join('');
+
+  projSel.innerHTML = '<option value="">Todos los proyectos</option>' + projs.map(p =>
+    `<option value="${p}" ${p === curProj ? 'selected' : ''}>${p}</option>`
+  ).join('');
+}
+
+function renderLedger() {
+  const filterMonth = document.getElementById('filter-month')?.value || '';
+  const filterProject = document.getElementById('filter-project')?.value || '';
+
+  let filtered = ledger.filter(r => {
+    if (filterMonth && (!r.fecha || !r.fecha.startsWith(filterMonth))) return false;
+    if (filterProject && r.proyecto !== filterProject) return false;
+    return true;
+  }).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+  // Stats
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('stat-count').textContent = ledger.length;
+  document.getElementById('stat-month').textContent = ledger.filter(r => r.fecha?.startsWith(thisMonth)).length;
+  document.getElementById('stat-projects').textContent = new Set(ledger.map(r => r.proyecto).filter(Boolean)).size;
+
+  const tbody = document.getElementById('ledger-body');
+  const empty = document.getElementById('ledger-empty');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = filtered.map(r => `
+    <tr class="ledger-row">
+      <td>${r.fecha ? formatFecha(r.fecha) : '—'}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.proveedor || '—'}</td>
+      <td style="font-weight:700">${r.monto || '—'}</td>
+      <td style="font-family:var(--mono);font-size:10px">${r.numero_factura || '—'}</td>
+      <td><span class="tag">${r.proyecto || '—'}</span></td>
+      <td>${r.driveLink ? `<a class="ledger-link" href="${r.driveLink}" target="_blank">↗ Ver</a>` : '—'}</td>
+      <td><button class="ledger-del" onclick="promptDelete('${r.id}')">🗑</button></td>
+    </tr>
+  `).join('');
+
+  updateLedgerFilters();
+}
+
+function promptDelete(id) {
+  deleteTargetId = id;
+  openModal('delete-modal');
+}
+
+async function confirmDelete() {
+  const record = ledger.find(r => String(r.id) === String(deleteTargetId));
+  closeModal('delete-modal');
+  if (!record) return;
+
+  // Try to delete from Drive
+  if (record.driveFileId && driveConnected) {
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${record.driveFileId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${driveAccessToken}` }
+      });
+    } catch(e) { console.error('Drive delete error', e); }
+  }
+
+  ledger = ledger.filter(r => String(r.id) !== String(deleteTargetId));
+  saveLedger();
+  renderLedger();
+  showToast('Factura borrada', 'success');
+}
+
+// ══════════════════════════════════════════
+// PREVIEW
+// ══════════════════════════════════════════
+function openPreview(id) {
+  const inv = invoices.find(i => i.id == id);
+  if (!inv) return;
+  const d = inv.data || {};
+  document.getElementById('preview-img').src = inv.dataUrl;
+  const pdfLabel = document.getElementById('preview-pdf-label');
+  pdfLabel.style.display = inv.pdfSource ? 'block' : 'none';
+  if (inv.pdfSource) pdfLabel.textContent = '📄 ' + inv.pdfSource;
+
+  const fields = [
+    { label: 'Proveedor', value: d.proveedor },
+    { label: 'Fecha', value: d.fecha ? formatFecha(d.fecha) : null },
+    { label: 'Monto', value: d.monto },
+    { label: 'Nº Factura', value: d.numero_factura },
+    { label: 'Proyecto', value: inv.project },
+  ].filter(f => f.value);
+
+  document.getElementById('preview-fields').innerHTML = fields.map(f => `
+    <div>
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:2px">${f.label}</div>
+      <div style="font-size:13px;font-weight:600">${f.value}</div>
+    </div>`).join('');
+
+  const path = buildPath(inv);
+  document.getElementById('preview-path').textContent = '📁 ' + path;
+  openModal('preview-modal');
+}
+
+// ══════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.getElementById('project-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal('project-modal'); });
+document.getElementById('preview-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal('preview-modal'); });
+document.getElementById('delete-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal('delete-modal'); });
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' ' + type : '');
+  setTimeout(() => { t.className = ''; }, 3000);
+}
+
+document.getElementById('new-project-name').addEventListener('keydown', e => { if (e.key === 'Enter') addProject(); });
+
+// ══════════════════════════════════════════
+// EXTRACTO BANCARIO
+// ══════════════════════════════════════════
+let extractoPeriod = 3;
+let checklistData = [];
+let checklistFilter = 'all';
+
+// Source hints per vendor — learned from upload history
+const SOURCE_HINTS = {
+  'amazon': { source: 'email', label: '📧 Email', cls: 'source-email', hint: 'Amazon envía facturas al email automáticamente. Buscá en tu inbox un email de "Amazon EU" con asunto "Tu factura".' },
+  'google': { source: 'email', label: '📧 Email', cls: 'source-email', hint: 'Google envía facturas al email del administrador. Revisá en Gmail → buscar "factura Google".' },
+  'leroy': { source: 'fisica', label: '🧾 Física/Email', cls: 'source-fisica', hint: 'Leroy Merlin puede dar ticket físico o enviar por email si tenés cuenta. Revisá el email o los recibos físicos.' },
+  'vodafone': { source: 'email', label: '📧 Email', cls: 'source-email', hint: 'Vodafone envía facturas por email. Buscá en Gmail con asunto "Sua fatura Vodafone".' },
+  'nos': { source: 'portal', label: '🌐 Portal cliente', cls: 'source-portal', hint: 'NOS: entrá a meo.pt o nos.pt con tu cuenta y descargá la factura desde "As minhas faturas".' },
+  'meo': { source: 'portal', label: '🌐 Portal cliente', cls: 'source-portal', hint: 'MEO: entrá a meo.pt con tu cuenta y descargá desde "Faturas".' },
+  'edp': { source: 'portal', label: '🌐 Portal + Email', cls: 'source-portal', hint: 'EDP envía por email o podés descargar desde edp.pt → "A minha área".' },
+  'emel': { source: 'portal', label: '🌐 Portal', cls: 'source-portal', hint: 'EMEL: descargá desde emel.pt en tu área de cliente.' },
+  'whatsapp': { source: 'whatsapp', label: '💬 WhatsApp', cls: 'source-whatsapp', hint: 'Esta factura puede haberte llegado por WhatsApp. Revisá tus chats de proveedores.' },
+};
+
+function getSourceHint(providerName) {
+  if (!providerName) return null;
+  const lower = providerName.toLowerCase();
+  for (const [key, val] of Object.entries(SOURCE_HINTS)) {
+    if (lower.includes(key)) return val;
+  }
+  // Default based on amount — large amounts usually have formal invoices
+  return { source: 'email', label: '📧 Email/Físico', cls: 'source-email', hint: 'Revisá tu email buscando el nombre del proveedor, o buscá entre tus recibos físicos.' };
+}
+
+function setPeriod(months) {
+  extractoPeriod = months;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// File input for extracto
+document.getElementById('extracto-input').addEventListener('change', e => {
+  if (e.target.files[0]) processExtracto(e.target.files[0]);
+});
+
+const extractoDrop = document.getElementById('extracto-drop');
+extractoDrop.addEventListener('dragover', e => { e.preventDefault(); extractoDrop.classList.add('drag-over'); });
+extractoDrop.addEventListener('dragleave', () => extractoDrop.classList.remove('drag-over'));
+extractoDrop.addEventListener('drop', e => {
+  e.preventDefault();
+  extractoDrop.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) processExtracto(e.dataTransfer.files[0]);
+});
+
+async function processExtracto(file) {
+  document.getElementById('extracto-upload-section').style.display = 'none';
+  document.getElementById('extracto-analyzing').style.display = 'block';
+  document.getElementById('extracto-results').style.display = 'none';
+
+  try {
+    setAnalyzingStatus('Leyendo archivo...');
+    const dataUrl = await readFile(file);
+    const base64 = dataUrl.split(',')[1];
+
+    // Determine media type
+    let mediaType = file.type || 'application/pdf';
+    if (mediaType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') mediaType = 'application/pdf';
+
+    setAnalyzingStatus('Claude está leyendo los movimientos bancarios...');
+
+    // Build ledger context for Claude
+    const ledgerContext = ledger.slice(-200).map(r =>
+      (r.fecha||'?') + ' | ' + (r.proveedor||'?') + ' | ' + (r.monto||'?')
+    ).join('\n');
+
+
+    // Convert file to image pages for Claude (Haiku doesn't support PDF documents directly)
+    let imagePages = [];
+    if (mediaType.startsWith('image/')) {
+      imagePages = [{ type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } }];
+    } else {
+      setAnalyzingStatus('Convirtiendo a imágenes...');
+      if (!window.pdfjsLib) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+      try {
+        const pdfData = atob(base64);
+        const pdfArr = new Uint8Array(pdfData.length);
+        for (let i = 0; i < pdfData.length; i++) pdfArr[i] = pdfData.charCodeAt(i);
+        const pdf = await pdfjsLib.getDocument({ data: pdfArr }).promise;
+        const maxPages = Math.min(pdf.numPages, 6);
+        setAnalyzingStatus('Procesando ' + maxPages + ' paginas...');
+        for (let p = 1; p <= maxPages; p++) {
+          const page = await pdf.getPage(p);
+          const vp = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          canvas.width = vp.width; canvas.height = vp.height;
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+          imagePages.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: canvas.toDataURL('image/jpeg', 0.75).split(',')[1] } });
+        }
+      } catch(e) {
+        throw new Error('No se pudo leer el archivo. Subilo como imagen o screenshot.');
+      }
+    }
+
+    const prompt = 'Analiza este extracto bancario. Extrae TODOS los movimientos de debito/gasto. ' +
+      'Facturas ya registradas: ' + (ledgerContext || 'ninguna') + '. ' +
+      'Para cada movimiento indica si hay factura coincidente (mismo proveedor, monto similar +-5%). ' +
+      'Responde SOLO JSON sin markdown: {"periodo":"Oct-Dic 2025","banco":"nombre","movimientos":[{"fecha":"YYYY-MM-DD","descripcion":"desc","proveedor":"nombre","monto":123.45,"moneda":"EUR","tiene_factura":true,"factura_ref":"ref o null"}]}';
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': claudeKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
+        messages: [{ role: 'user', content: [...imagePages, { type: 'text', text: prompt }] }]
+      })
+    });
+
+    setAnalyzingStatus('Cruzando con facturas registradas...');
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message);
+
+    const text = result.content?.map(c => c.text || '').join('') || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(clean);
+
+    setAnalyzingStatus('Generando checklist...');
+    await new Promise(r => setTimeout(r, 400));
+
+    buildChecklist(data);
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById('extracto-upload-section').style.display = 'block';
+    document.getElementById('extracto-analyzing').style.display = 'none';
+    showToast('Error analizando extracto: ' + err.message, 'error');
+  }
+}
+
+function setAnalyzingStatus(msg) {
+  document.getElementById('analyzing-status').textContent = msg;
+}
+
+function buildChecklist(data) {
+  checklistData = data.movimientos || [];
+
+  // Filter by period
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - extractoPeriod);
+  checklistData = checklistData.filter(m => {
+    if (!m.fecha) return true;
+    return new Date(m.fecha) >= cutoff;
+  });
+
+  // Sort: missing first, then by date desc
+  checklistData.sort((a, b) => {
+    if (a.tiene_factura !== b.tiene_factura) return a.tiene_factura ? 1 : -1;
+    return (b.fecha || '').localeCompare(a.fecha || '');
+  });
+
+  // Add ignored flag
+  checklistData.forEach(m => { m._ignored = false; m._id = Math.random(); });
+
+  const found = checklistData.filter(m => m.tiene_factura).length;
+  const missing = checklistData.filter(m => !m.tiene_factura).length;
+
+  document.getElementById('stat-found').textContent = found;
+  document.getElementById('stat-missing').textContent = missing;
+  document.getElementById('stat-total-movements').textContent = checklistData.length;
+
+  document.getElementById('extracto-analyzing').style.display = 'none';
+  document.getElementById('extracto-results').style.display = 'block';
+
+  // Show period info
+  if (data.periodo || data.banco) {
+    const info = [data.banco, data.periodo].filter(Boolean).join(' — ');
+    showToast('📊 ' + info, 'success');
+  }
+
+  renderChecklist();
+}
+
+function renderChecklist() {
+  const container = document.getElementById('checklist-container');
+  let items = checklistData;
+
+  if (checklistFilter === 'missing') items = items.filter(m => !m.tiene_factura && !m._ignored);
+  else if (checklistFilter === 'found') items = items.filter(m => m.tiene_factura);
+
+  if (items.length === 0) { container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:12px">No hay items en esta categoria</div>'; return; }
+
+
+
+
+  container.innerHTML = items.map(m => {
+    const hint = !m.tiene_factura ? getSourceHint(m.proveedor) : null;
+    const cls = m._ignored ? 'ignored' : (m.tiene_factura ? 'found' : 'missing');
+    const icon = m._ignored ? '➖' : (m.tiene_factura ? '✅' : '❌');
+    const fecha = m.fecha ? formatFecha(m.fecha) : '—';
+    const monto = m.monto ? `${m.moneda || '€'}${Number(m.monto).toFixed(2)}` : '—';
+
+    return `<div class="check-item ${cls}" data-id="${m._id}">
+      <div class="check-icon">${icon}</div>
+      <div class="check-body">
+        <div class="check-title">
+          <span>${m.proveedor || m.descripcion || '—'}</span>
+          <span class="amount-badge">${monto}</span>
+          ${hint && !m.tiene_factura ? `<span class="source-badge ${hint.cls}">${hint.label}</span>` : ''}
+        </div>
+        <div class="check-sub">${fecha}${m.descripcion && m.descripcion !== m.proveedor ? ' · ' + m.descripcion : ''}</div>
+        ${!m.tiene_factura && !m._ignored && hint ? `<div class="check-hint">💡 <strong>Dónde buscar:</strong> ${hint.hint}</div>` : ''}
+        ${m.tiene_factura ? `<div class="check-hint" style="color:var(--success);background:rgba(68,255,136,0.06)">✓ Factura registrada${m.factura_ref ? ': ' + m.factura_ref : ''}</div>` : ''}
+        ${!m.tiene_factura && !m._ignored ? `
+        <div class="check-actions">
+          <button class="check-btn primary" onclick="markGoScan('${m._id}')">📷 Ir a escanear</button>
+          <button class="check-btn danger" onclick="ignoreItem('${m._id}')">Ignorar</button>
+        </div>` : ''}
+        ${m._ignored ? `<div class="check-actions"><button class="check-btn" onclick="unignoreItem('${m._id}')">↺ Restaurar</button></div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterChecklist(f) {
+  checklistFilter = f;
+  document.querySelectorAll('[id^="cf-"]').forEach(b => {
+    b.style.borderColor = ''; b.style.color = '';
+  });
+  const active = document.getElementById('cf-' + f);
+  if (active) { active.style.borderColor = 'var(--accent)'; active.style.color = 'var(--accent)'; }
+  renderChecklist();
+}
+
+function markGoScan(id) {
+  const item = checklistData.find(m => String(m._id) === String(id));
+  if (item) {
+    showToast(`📷 Buscá la factura de ${item.proveedor || 'este proveedor'}`, 'success');
+    switchTab('scan');
+  }
+}
+
+function ignoreItem(id) {
+  const item = checklistData.find(m => String(m._id) === String(id));
+  if (item) { item._ignored = true; renderChecklist(); updateChecklistStats(); }
+}
+
+function unignoreItem(id) {
+  const item = checklistData.find(m => String(m._id) === String(id));
+  if (item) { item._ignored = false; renderChecklist(); updateChecklistStats(); }
+}
+
+function updateChecklistStats() {
+  const active = checklistData.filter(m => !m._ignored);
+  document.getElementById('stat-found').textContent = active.filter(m => m.tiene_factura).length;
+  document.getElementById('stat-missing').textContent = active.filter(m => !m.tiene_factura).length;
+}
+
+function resetExtracto() {
+  checklistData = [];
+  document.getElementById('extracto-upload-section').style.display = 'block';
+  document.getElementById('extracto-results').style.display = 'none';
+  document.getElementById('extracto-analyzing').style.display = 'none';
+  document.getElementById('extracto-input').value = '';
+}
+
+// ══════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════
+loadKeys();
+</script>
+</body>
+</html>
