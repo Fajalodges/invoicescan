@@ -236,7 +236,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.20</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.22</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -930,7 +930,7 @@ function requestDriveToken() {
   if (!window.google) { showToast('Recargá la página e intentá de nuevo', 'error'); return; }
   const client = google.accounts.oauth2.initTokenClient({
     client_id: googleClientId,
-    scope: 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets',
+    scope: 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.readonly',
     callback: (tokenResponse) => {
       if (tokenResponse.error) { showToast('Error al conectar Drive', 'error'); return; }
       driveAccessToken = tokenResponse.access_token;
@@ -1391,7 +1391,8 @@ document.getElementById('new-project-name').addEventListener('keydown', e => { i
 let extractoPeriod = 3;
 let checklistData = [];
 let checklistFilter = 'all';
-let extractos = JSON.parse(localStorage.getItem('fs_extractos') || '{}'); // key: "YYYY-MM" or "YYYY", value: {period, uploadedAt, driveLink, movimientos, banco}
+let extractos = JSON.parse(localStorage.getItem('fs_extractos') || '{}');
+let processedEmails = JSON.parse(localStorage.getItem('fs_processed_emails') || '[]'); // array of gmail message IDs already processed // key: "YYYY-MM" or "YYYY", value: {period, uploadedAt, driveLink, movimientos, banco}
 let calendarYear = (() => {
   const saved = JSON.parse(localStorage.getItem('fs_extractos') || '{}');
   const keys = Object.keys(saved);
@@ -1405,55 +1406,119 @@ let calendarYear = (() => {
 let pendingExtractoFile = null; // file waiting for replace confirmation
 let pendingExtractoKey = null;
 
-// ── AUTO-REMATCH: when a new invoice is uploaded, re-check extracto movements ──
-function rematchExtracto(record) {
-  if (!record.fecha || !record.proveedor) return;
-  const monthKey = record.fecha.slice(0, 7);
-  const yearKey = record.fecha.slice(0, 4);
-  const storageKey = extractos[monthKey] ? monthKey : (extractos[yearKey] ? yearKey : null);
-  const ex = extractos[storageKey];
-  if (!ex || !ex.movimientos || ex.movimientos.length === 0) return;
+// ══════════════════════════════════════════
+// GMAIL SYNC
+// ══════════════════════════════════════════
 
-  const provNorm = p => (p || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const recProv = provNorm(record.proveedor);
-  const recMonto = parseFloat(record.monto) || 0;
-  let matched = 0;
-
-  ex.movimientos.forEach(m => {
-    if (m.tiene_factura) return; // already matched
-    const movProv = provNorm(m.proveedor);
-    // Match if provider name overlaps (one contains the other) and amount within 15%
-    const provMatch = recProv.length > 2 && (movProv.includes(recProv.slice(0,5)) || recProv.includes(movProv.slice(0,5)));
-    const montoMatch = recMonto > 0 && Math.abs(m.monto - recMonto) / Math.max(m.monto, recMonto) < 0.15;
-    if (provMatch && montoMatch) {
-      m.tiene_factura = true;
-      m.factura_ref = record.fileName || record.proveedor;
-      matched++;
-    }
-  });
-
-  if (matched > 0) {
-    saveExtractos();
-    // Sync checklistData if currently viewing this extracto
-    if (checklistData.length > 0) {
-      checklistData.forEach(cd => {
-        const match = ex.movimientos.find(m =>
-          m.fecha === cd.fecha && m.proveedor === cd.proveedor && m.monto === cd.monto
-        );
-        if (match) {
-          cd.tiene_factura = match.tiene_factura;
-          cd.factura_ref = match.factura_ref;
-        }
-      });
-    }
-    renderCalendar();
-    if (currentTab === 'extracto') renderChecklist();
-    showToast('🔄 ' + matched + ' movimiento' + (matched > 1 ? 's' : '') + ' cruzado' + (matched > 1 ? 's' : '') + ' con extracto', 'success');
-  }
+function saveProcessedEmails() {
+  localStorage.setItem('fs_processed_emails', JSON.stringify(processedEmails));
 }
 
-function saveExtractos() {
-  localStorage.setItem('fs_extractos', JSON.stringify(extractos));
+async function syncGmail() {
+  if (!driveAccessToken) {
+    showToast('Conectá Drive/Google primero', 'error');
+    return;
+  }
+  const btn = document.getElementById('gmail-sync-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Buscando...';
+  try {
+    const query = encodeURIComponent('has:attachment (factura OR fatura OR invoice OR receipt OR recibo OR rechnung OR nota) newer_than:365d');
+    const searchRes = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + query + '&maxResults=50',
+      { headers: { Authorization: 'Bearer ' + driveAccessToken } }
+    );
+    const searchData = await searchRes.json();
+    if (searchData.error) throw new Error(searchData.error.message);
+    const messages = searchData.messages || [];
+    const newMessages = messages.filter(m => !processedEmails.includes(m.id));
+    if (newMessages.length === 0) {
+      showToast('📧 Sin emails nuevos con facturas', 'success');
+      btn.disabled = false; btn.innerHTML = '📧 Sincronizar Gmail'; return;
+    }
+    btn.textContent = '⏳ ' + newMessages.length + ' emails...';
+    let added = 0;
+    for (const msg of newMessages.slice(0, 20)) {
+      try {
+        const msgRes = await fetch(
+          'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + msg.id + '?format=full',
+          { headers: { Authorization: 'Bearer ' + driveAccessToken } }
+        );
+        const msgData = await msgRes.json();
+        const attachments = getGmailAttachments(msgData.payload);
+        const invoiceAtts = attachments.filter(a => isLikelyInvoice(a.filename, a.mimeType));
+        for (const att of invoiceAtts) {
+          const attRes = await fetch(
+            'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + msg.id + '/attachments/' + att.attachmentId,
+            { headers: { Authorization: 'Bearer ' + driveAccessToken } }
+          );
+          const attData = await attRes.json();
+          const base64 = attData.data.replace(/-/g, '+').replace(/_/g, '/');
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const blob = new Blob([bytes], { type: att.mimeType || 'application/pdf' });
+          const file = new File([blob], att.filename, { type: att.mimeType || 'application/pdf' });
+          await addEmailAttachmentToQueue(file);
+          added++;
+        }
+        processedEmails.push(msg.id);
+      } catch(e) {
+        console.error('Email error:', e);
+        processedEmails.push(msg.id);
+      }
+    }
+    saveProcessedEmails();
+    showToast('📧 ' + added + ' facturas añadidas a la cola', 'success');
+  } catch(e) {
+    console.error('Gmail sync error:', e);
+    showToast('Error Gmail: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '📧 Sincronizar Gmail';
+}
+
+function getGmailAttachments(payload, result = []) {
+  if (!payload) return result;
+  if (payload.parts) payload.parts.forEach(p => getGmailAttachments(p, result));
+  if (payload.filename && payload.filename.length > 0 && payload.body && payload.body.attachmentId) {
+    result.push({ filename: payload.filename, mimeType: payload.mimeType, attachmentId: payload.body.attachmentId });
+  }
+  return result;
+}
+
+function isLikelyInvoice(filename, mimeType) {
+  if (!filename) return false;
+  const name = filename.toLowerCase();
+  const ext = name.split('.').pop();
+  if (!['pdf','png','jpg','jpeg','webp'].includes(ext)) return false;
+  const skipWords = ['ticket','boarding','photo','foto','screenshot','contrato','contract','proposta'];
+  if (skipWords.some(w => name.includes(w))) return false;
+  const invoiceWords = ['factura','fatura','invoice','receipt','recibo','nota','bill','rechnung','tax'];
+  if (invoiceWords.some(w => name.includes(w))) return true;
+  if (ext === 'pdf') return true;
+  return false;
+}
+
+async function addEmailAttachmentToQueue(file) {
+  const inv = {
+    id: Date.now() + Math.random(),
+    file,
+    fileName: file.name,
+    status: 'pending',
+    source: 'gmail',
+    data: null,
+    pages: []
+  };
+  invoices.push(inv);
+  renderQueue();
+  try {
+    await analyzeInvoice(inv);
+  } catch(e) {
+    inv.status = 'error';
+    inv.errorMsg = e.message;
+    renderQueue();
+  }
 }
 
 // ── CALENDAR ──
@@ -1708,7 +1773,7 @@ async function doProcessExtracto(file) {
         const pdfArr = new Uint8Array(pdfData.length);
         for (let i = 0; i < pdfData.length; i++) pdfArr[i] = pdfData.charCodeAt(i);
         const pdf = await pdfjsLib.getDocument({ data: pdfArr }).promise;
-        const maxPages = Math.min(pdf.numPages, 6);
+        const maxPages = Math.min(pdf.numPages, 3);
         setAnalyzingStatus('Procesando ' + maxPages + ' paginas...');
         for (let p = 1; p <= maxPages; p++) {
           const page = await pdf.getPage(p);
@@ -1748,8 +1813,8 @@ async function doProcessExtracto(file) {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 16000,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 8000,
         messages: [{ role: 'user', content: [...imagePages, { type: 'text', text: prompt }] }]
       })
     });
