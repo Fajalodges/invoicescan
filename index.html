@@ -236,7 +236,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.15</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.16</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -1765,14 +1765,6 @@ function setAnalyzingStatus(msg) {
 
 async function buildChecklist(data, file) {
   checklistData = data.movimientos || [];
-
-  // Filter by period
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - extractoPeriod);
-  checklistData = checklistData.filter(m => {
-    if (!m.fecha) return true;
-    return new Date(m.fecha) >= cutoff;
-  });
 
   // Sort: missing first, then by date desc
   checklistData.sort((a, b) => {
