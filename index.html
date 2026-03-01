@@ -1793,40 +1793,53 @@ async function buildChecklist(data, file) {
   extractos[storageKey] = record;
   saveExtractos();
 
-  // Upload to Drive in background
-  if (driveConnected && file) {
+  // Upload extracto to Drive
+  console.log('Drive upload check — driveConnected:', driveConnected, 'token:', !!driveAccessToken, 'file:', !!file);
+  if (file && driveAccessToken) {
     try {
+      setAnalyzingStatus('Subiendo extracto a Drive...');
+      document.getElementById('extracto-analyzing').style.display = 'block';
+      document.getElementById('extracto-results').style.display = 'none';
       const rootId = await getAppRootFolder();
       let folderId;
       if (storageKey.length === 4) {
-        // Annual
         folderId = await getOrCreateSubfolder(storageKey, rootId);
       } else {
         const [y, m] = storageKey.split('-');
         const yearId = await getOrCreateSubfolder(y, rootId);
         folderId = await getOrCreateSubfolder(MONTHS_ES[parseInt(m)-1], yearId);
       }
-      const ext = file.name.split('.').pop() || 'pdf';
+      const ext = (file.name || 'extracto').split('.').pop() || 'pdf';
       const fname = 'extracto_' + storageKey + '.' + ext;
-      const blob = file;
       const mimeType = file.type || 'application/pdf';
       const metadata = { name: fname, parents: [folderId] };
       const form = new FormData();
       form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      form.append('file', blob, fname);
+      form.append('file', file, fname);
       const upRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + driveAccessToken },
         body: form
       });
       const upData = await upRes.json();
-      extractos[storageKey].driveLink = upData.webViewLink || null;
-      extractos[storageKey].driveFileId = upData.id || null;
-      saveExtractos();
-      showToast('💳 Extracto guardado en Drive', 'success');
+      console.log('Drive upload result:', upData);
+      if (upData.id) {
+        extractos[storageKey].driveLink = upData.webViewLink || null;
+        extractos[storageKey].driveFileId = upData.id;
+        saveExtractos();
+        showToast('💳 Extracto guardado en Drive', 'success');
+      } else {
+        console.error('Drive upload failed:', upData);
+        showToast('⚠ No se pudo subir a Drive: ' + (upData.error?.message || 'error'), 'error');
+      }
+      document.getElementById('extracto-analyzing').style.display = 'none';
     } catch(e) {
       console.error('Error subiendo extracto a Drive:', e);
+      showToast('⚠ Error subiendo a Drive: ' + e.message, 'error');
+      document.getElementById('extracto-analyzing').style.display = 'none';
     }
+  } else if (!driveAccessToken) {
+    showToast('⚠ Conectá Drive para guardar el extracto', 'error');
   }
 
   // Set period label
