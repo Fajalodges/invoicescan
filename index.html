@@ -236,7 +236,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.11</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.12</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -1538,10 +1538,27 @@ function showResults() {
   document.getElementById('extracto-analyzing').style.display = 'none';
   document.getElementById('extracto-results').style.display = 'block';
 
-  const found = checklistData.filter(m => m.tiene_factura).length;
-  const missing = checklistData.filter(m => !m.tiene_factura && !m._ignored).length;
+  const gastos = checklistData.filter(m => !m.tipo || (m.tipo !== 'alojamento' && m.tipo !== 'outro'));
+  const alojamento = checklistData.filter(m => m.tipo === 'alojamento');
+  const found = gastos.filter(m => m.tiene_factura).length;
+  const missing = gastos.filter(m => !m.tiene_factura && !m._ignored).length;
   document.getElementById('stat-found').textContent = found;
   document.getElementById('stat-missing').textContent = missing;
+  document.getElementById('stat-total-movements').textContent = gastos.length;
+
+  const alojDiv = document.getElementById('stat-alojamento-wrap');
+  if (alojDiv) {
+    if (alojamento.length > 0) {
+      const total = alojamento.reduce((s, m) => s + (m.monto || 0), 0);
+      alojDiv.style.display = 'flex';
+      alojDiv.style.justifyContent = 'space-between';
+      alojDiv.style.alignItems = 'center';
+      document.getElementById('stat-alojamento').textContent = alojamento.length;
+      document.getElementById('stat-alojamento-total').textContent = '€' + total.toFixed(2);
+    } else {
+      alojDiv.style.display = 'none';
+    }
+  }g;
   document.getElementById('stat-total-movements').textContent = checklistData.length;
   renderChecklist();
 }
@@ -1785,8 +1802,20 @@ async function buildChecklist(data, file) {
       // Single month
       storageKey = lastMonth;
     }
+  } else if (pendingExtractoKey) {
+    storageKey = pendingExtractoKey;
+  } else if (data.periodo) {
+    // Try to parse from periodo string e.g. "Jun 2025"
+    const mesMap = {'jan':'01','feb':'02','mar':'03','abr':'04','mai':'05','jun':'06','jul':'07','ago':'08','set':'09','out':'10','nov':'11','dez':'12','ene':'01','apr':'04','may':'05','sep':'09','oct':'10','dic':'12'};
+    const pm = data.periodo.toLowerCase().match(/([a-z]+)[\s\-]*(\d{4})/);
+    if (pm) {
+      const mes = mesMap[pm[1].slice(0,3)] || '01';
+      storageKey = pm[2] + '-' + mes;
+    } else {
+      storageKey = new Date().toISOString().slice(0,7);
+    }
   } else {
-    storageKey = pendingExtractoKey || new Date().toISOString().slice(0,7);
+    storageKey = new Date().toISOString().slice(0,7);
   }
 
   // Save to localStorage
@@ -1871,7 +1900,8 @@ function renderChecklist() {
   const container = document.getElementById('checklist-container');
   // Separate alojamento from gastos
   const alojamento = checklistData.filter(m => m.tipo === 'alojamento');
-  let items = checklistData.filter(m => m.tipo !== 'alojamento' && m.tipo !== 'outro');
+  // Items without tipo are treated as gastos (backwards compat)
+  let items = checklistData.filter(m => !m.tipo || (m.tipo !== 'alojamento' && m.tipo !== 'outro'));
 
   if (checklistFilter === 'missing') items = items.filter(m => !m.tiene_factura && !m._ignored);
   else if (checklistFilter === 'found') items = items.filter(m => m.tiene_factura);
