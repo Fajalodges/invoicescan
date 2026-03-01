@@ -1647,10 +1647,12 @@ async function doProcessExtracto(file) {
       }
     }
 
-    const prompt = 'Analiza este extracto bancario. Extrae TODOS los movimientos de debito/gasto. ' +
-      'Facturas ya registradas: ' + (ledgerContext || 'ninguna') + '. ' +
-      'Para cada movimiento indica si hay factura coincidente (mismo proveedor, monto similar +-5%). ' +
-      'Responde SOLO JSON sin markdown: {"periodo":"Oct-Dic 2025","banco":"nombre","movimientos":[{"fecha":"YYYY-MM-DD","descripcion":"desc","proveedor":"nombre","monto":123.45,"moneda":"EUR","tiene_factura":true,"factura_ref":"ref o null"}]}';
+    const prompt = 'Analiza este extracto bancario. Extrae movimientos de debito/gasto (excluye transferencias entre cuentas propias, impuestos menores de 5 EUR y comisiones bancarias bajo 2 EUR). ' +
+      'Facturas registradas: ' + (ledgerContext || 'ninguna') + '. ' +
+      'Por cada movimiento indica si hay factura coincidente (mismo proveedor, monto +-5%). ' +
+      'IMPORTANTE: responde SOLO JSON valido y COMPLETO, sin cortar. Formato minimo por movimiento: ' +
+      '{"periodo":"Dic 2025","banco":"nombre","movimientos":[{"fecha":"YYYY-MM-DD","proveedor":"nombre corto","monto":123.45,"tiene_factura":true}]}' +
+      ' No incluyas descripcion ni moneda para ahorrar espacio. Proveedor maximo 30 caracteres.';
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -1662,7 +1664,7 @@ async function doProcessExtracto(file) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
+        max_tokens: 16000,
         messages: [{ role: 'user', content: [...imagePages, { type: 'text', text: prompt }] }]
       })
     });
@@ -1673,17 +1675,39 @@ async function doProcessExtracto(file) {
 
     const text = result.content?.map(c => c.text || '').join('') || '';
     let clean = text.replace(/```json|```/g, '').trim();
-    // Find JSON object in response
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    if (jsonMatch) clean = jsonMatch[0];
+    // Find JSON object start
+    const jsonStart = clean.indexOf('{');
+    if (jsonStart >= 0) clean = clean.slice(jsonStart);
     // Fix common JSON issues: single quotes, trailing commas
-    clean = clean.replace(/'/g, '"').replace(/,\s*([}\]])/g, '$1');
+    clean = clean.replace(/,\s*([}\]])/g, '$1');
     let data;
     try {
       data = JSON.parse(clean);
     } catch(e) {
-      console.error('JSON parse error:', e, 'Raw:', clean.slice(0, 200));
-      throw new Error('Claude devolvió un formato inesperado. Intentá de nuevo.');
+      // JSON truncated - try to recover partial movimientos array
+      console.warn('JSON truncated, attempting recovery. Error:', e.message);
+      try {
+        // Extract what we have from movimientos array
+        const periodoMatch = clean.match(/"periodo"\s*:\s*"([^"]+)"/);
+        const bancoMatch = clean.match(/"banco"\s*:\s*"([^"]+)"/);
+        // Extract complete movement objects
+        const movRegex = /\{[^{}]*"fecha"\s*:\s*"[^"]*"[^{}]*"tiene_factura"\s*:\s*(true|false)[^{}]*\}/g;
+        const movimientos = [];
+        let m;
+        while ((m = movRegex.exec(clean)) !== null) {
+          try { movimientos.push(JSON.parse(m[0])); } catch(e2) {}
+        }
+        if (movimientos.length === 0) throw new Error('No se pudieron recuperar movimientos');
+        data = {
+          periodo: periodoMatch ? periodoMatch[1] : '',
+          banco: bancoMatch ? bancoMatch[1] : '',
+          movimientos
+        };
+        showToast('⚠ Respuesta parcial: ' + movimientos.length + ' movimientos recuperados', 'success');
+      } catch(e2) {
+        console.error('Recovery failed:', e2, 'Raw:', clean.slice(0, 300));
+        throw new Error('El extracto es muy largo. Intentá subirlo por meses separados.');
+      }
     }
 
     setAnalyzingStatus('Generando checklist...');
