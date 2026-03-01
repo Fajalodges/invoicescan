@@ -236,7 +236,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.12</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.15</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -1782,7 +1782,7 @@ async function buildChecklist(data, file) {
 
   checklistData.forEach(m => { m._ignored = false; m._id = Math.random(); });
 
-  // Determine storage key ALWAYS from actual movement dates (not upload date)
+  // Determine storage key ALWAYS from actual movement dates (not from which month was clicked)
   const dates = checklistData.filter(m => m.fecha).map(m => m.fecha).sort();
   let storageKey;
   if (dates.length > 0) {
@@ -1793,21 +1793,16 @@ async function buildChecklist(data, file) {
     const firstYear = firstDate.slice(0,4);
     const lastYear = lastDate.slice(0,4);
     if (firstYear !== lastYear) {
-      // Spans multiple years - use last year as key
       storageKey = lastYear;
     } else if (firstMonth !== lastMonth) {
-      // Spans multiple months - use last month or annual key
       const monthSpan = (new Date(lastDate) - new Date(firstDate)) / (1000*60*60*24*30);
       storageKey = monthSpan >= 10 ? lastYear : lastMonth;
     } else {
-      // Single month
       storageKey = lastMonth;
     }
-  } else if (pendingExtractoKey) {
-    storageKey = pendingExtractoKey;
   } else if (data.periodo) {
     // Try to parse from periodo string e.g. "Jun 2025"
-    const mesMap = {'jan':'01','feb':'02','mar':'03','abr':'04','mai':'05','jun':'06','jul':'07','ago':'08','set':'09','out':'10','nov':'11','dez':'12','ene':'01','apr':'04','may':'05','sep':'09','oct':'10','dic':'12'};
+    const mesMap = {'jan':'01','feb':'02','mar':'03','abr':'04','mai':'05','jun':'06','jul':'07','ago':'08','set':'09','out':'10','nov':'11','dez':'12','ene':'01','apr':'04','may':'05','sep':'09','oct':'10','dic':'12','aug':'08','jan':'01','jun':'06','jul':'07','nov':'11','dec':'12','oct':'10','sep':'09'};
     const pm = data.periodo.toLowerCase().match(/([a-z]+)[\s\-]*(\d{4})/);
     if (pm) {
       const mes = mesMap[pm[1].slice(0,3)] || '01';
