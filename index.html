@@ -340,7 +340,7 @@
   <div style="height:16px"></div>
 
   <!-- YEAR SELECTOR + CALENDAR -->
-  <div id="extracto-calendar-section">
+  <div id="extracto-calendar-section" style="display:block">
     <div class="year-selector" id="year-selector"></div>
     <div class="month-grid" id="month-grid"></div>
     <button class="hbtn" onclick="showUploadSection(null)" style="width:100%;justify-content:center;margin-bottom:24px">
@@ -525,6 +525,7 @@ function switchTab(tab) {
   document.getElementById('tab-ledger').classList.toggle('active', tab === 'ledger');
   document.getElementById('tab-extracto').classList.toggle('active', tab === 'extracto');
   if (tab === 'ledger') { renderLedger(); updateLedgerFilters(); }
+  if (tab === 'extracto') { renderCalendar(); }
 }
 
 // ══════════════════════════════════════════
@@ -1473,6 +1474,8 @@ function clickMonth(monthNum) {
 function showUploadSection(monthKey) {
   document.getElementById('extracto-calendar-section').style.display = 'none';
   document.getElementById('extracto-upload-section').style.display = 'block';
+  document.getElementById('extracto-analyzing').style.display = 'none';
+  document.getElementById('extracto-results').style.display = 'none';
   document.getElementById('extracto-results').style.display = 'none';
   document.getElementById('extracto-analyzing').style.display = 'none';
 
@@ -1669,8 +1672,19 @@ async function doProcessExtracto(file) {
     if (result.error) throw new Error(result.error.message);
 
     const text = result.content?.map(c => c.text || '').join('') || '';
-    const clean = text.replace(/```json|```/g, '').trim();
-    const data = JSON.parse(clean);
+    let clean = text.replace(/```json|```/g, '').trim();
+    // Find JSON object in response
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    if (jsonMatch) clean = jsonMatch[0];
+    // Fix common JSON issues: single quotes, trailing commas
+    clean = clean.replace(/'/g, '"').replace(/,\s*([}\]])/g, '$1');
+    let data;
+    try {
+      data = JSON.parse(clean);
+    } catch(e) {
+      console.error('JSON parse error:', e, 'Raw:', clean.slice(0, 200));
+      throw new Error('Claude devolvió un formato inesperado. Intentá de nuevo.');
+    }
 
     setAnalyzingStatus('Generando checklist...');
     await new Promise(r => setTimeout(r, 400));
