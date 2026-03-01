@@ -1709,6 +1709,7 @@ async function doProcessExtracto(file) {
     if (result.error) throw new Error(result.error.message);
 
     const text = result.content?.map(c => c.text || '').join('') || '';
+    console.log('Claude extracto raw response:', text.slice(0, 500));
     let clean = text.replace(/```json|```/g, '').trim();
     // Find JSON object start
     const jsonStart = clean.indexOf('{');
@@ -1901,7 +1902,8 @@ function renderChecklist() {
   // Separate alojamento from gastos
   const alojamento = checklistData.filter(m => m.tipo === 'alojamento');
   // Items without tipo are treated as gastos (backwards compat)
-  let items = checklistData.filter(m => !m.tipo || (m.tipo !== 'alojamento' && m.tipo !== 'outro'));
+  // Also treat 'gasto' explicitly
+  let items = checklistData.filter(m => !m.tipo || m.tipo === 'gasto' || (m.tipo !== 'alojamento' && m.tipo !== 'outro'));
 
   if (checklistFilter === 'missing') items = items.filter(m => !m.tiene_factura && !m._ignored);
   else if (checklistFilter === 'found') items = items.filter(m => m.tiene_factura);
