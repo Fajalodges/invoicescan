@@ -309,9 +309,12 @@
     <div class="gmail-accounts-bar" id="gmail-accounts-bar">
       <button class="gmail-add-btn" onclick="addGmailAccount()">+ Agregar cuenta Gmail</button>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0;gap:8px">
       <div class="section-label" id="queue-label" style="display:none;margin:0">Cola de facturas</div>
-      <button class="hbtn" id="gmail-sync-btn" onclick="syncAllGmailAccounts()" style="margin-left:auto">📧 Sincronizar Gmail</button>
+      <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
+        <select id="gmail-year-select" style="padding:5px 10px;border-radius:100px;border:1.5px solid var(--border);background:var(--surface);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:var(--text)"></select>
+        <button class="hbtn" id="gmail-sync-btn" onclick="syncAllGmailAccounts()">📧 Sincronizar</button>
+      </div>
     </div>
   </div>
   <div class="queue" id="queue"></div>
@@ -1476,6 +1479,18 @@ function renderGmailAccounts() {
     </span>
   `).join('');
   bar.innerHTML = chips + '<button class="gmail-add-btn" onclick="addGmailAccount()">+ Agregar cuenta</button>';
+  // Populate year selector
+  const sel = document.getElementById('gmail-year-select');
+  if (!sel) return;
+  const currentYear = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let y = currentYear; y >= 2018; y--) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    if (y === currentYear) opt.selected = true;
+    sel.appendChild(opt);
+  }
 }
 
 function removeGmailAccount(email) {
@@ -1561,25 +1576,26 @@ async function syncGmail() {
 }
 
 async function syncGmailAccount(token) {
-  if (!driveAccessToken) {
-    showToast('Conectá Drive/Google primero', 'error');
-    return;
-  }
-  const btn = document.getElementById('gmail-sync-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Buscando...';
+  let added = 0;
   try {
-    const query = encodeURIComponent('has:attachment (factura OR fatura OR invoice OR receipt OR recibo OR rechnung OR nota) newer_than:365d');
-    const searchRes = await fetch(
-      'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + query + '&maxResults=50',
-      { headers: { Authorization: 'Bearer ' + token } }
-    );
-    const searchData = await searchRes.json();
-    if (searchData.error) throw new Error(searchData.error.message);
-    const messages = searchData.messages || [];
-    const newMessages = messages.filter(m => !processedEmails.includes(m.id));
+    const year = document.getElementById('gmail-year-select') ? document.getElementById('gmail-year-select').value : new Date().getFullYear();
+    const afterDate = year + '/01/01';
+    const beforeDate = (parseInt(year)+1) + '/01/01';
+    const query = encodeURIComponent('has:attachment (factura OR fatura OR invoice OR receipt OR recibo OR rechnung OR nota) after:' + afterDate + ' before:' + beforeDate);
+    // Paginate through all results
+    let allMessages = [];
+    let pageToken = null;
+    do {
+      const url = 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + query + '&maxResults=500' + (pageToken ? '&pageToken=' + pageToken : '');
+      const searchRes = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      const searchData = await searchRes.json();
+      if (searchData.error) throw new Error(searchData.error.message);
+      allMessages = allMessages.concat(searchData.messages || []);
+      pageToken = searchData.nextPageToken || null;
+    } while (pageToken);
+    const newMessages = allMessages.filter(m => !processedEmails.includes(m.id));
     if (newMessages.length === 0) { return 0; }
-    for (const msg of newMessages.slice(0, 20)) {
+    for (const msg of newMessages) {
       try {
         const msgRes = await fetch(
           'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + msg.id + '?format=full',
@@ -1598,8 +1614,11 @@ async function syncGmailAccount(token) {
           const binary = atob(base64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes], { type: att.mimeType || 'application/pdf' });
-          const file = new File([blob], att.filename, { type: att.mimeType || 'application/pdf' });
+          // Detect correct mimeType
+          const ext = att.filename.split('.').pop().toLowerCase();
+          const mimeType = ext === 'pdf' ? 'application/pdf' : (att.mimeType || 'image/jpeg');
+          const blob = new Blob([bytes], { type: mimeType });
+          const file = new File([blob], att.filename, { type: mimeType });
           await addEmailAttachmentToQueue(file);
           added++;
         }
