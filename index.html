@@ -232,8 +232,14 @@
     .aloj-row:last-child { border-bottom: none; }
     .aloj-amount { font-family: 'DM Mono', monospace; font-weight: 600; color: #166534; }
 
-    /* GMAIL SYNC BTN */
+    /* GMAIL ACCOUNTS */
     #gmail-sync-btn { font-size: 11px !important; padding: 5px 12px !important; }
+    .gmail-accounts-bar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; align-items:center; }
+    .gmail-account-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 10px 4px 8px; border-radius:100px; border:1.5px solid #bfdbfe; background:#eff6ff; font-size:11px; font-weight:600; color:#1e40af; font-family:'DM Mono',monospace; }
+    .gmail-account-chip .chip-remove { cursor:pointer; color:#93c5fd; font-size:13px; line-height:1; margin-left:2px; }
+    .gmail-account-chip .chip-remove:hover { color:#1e40af; }
+    .gmail-add-btn { padding:4px 10px; border-radius:100px; border:1.5px dashed #93c5fd; background:transparent; font-size:11px; font-weight:700; color:#2563eb; cursor:pointer; font-family:'Syne',sans-serif; transition:all .15s; }
+    .gmail-add-btn:hover { background:#eff6ff; }
 
     @media (max-width: 600px) {
       header { padding: 0 16px; }
@@ -299,9 +305,14 @@
   </button>
   <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" />
 
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0" id="queue-label-wrap">
-    <div class="section-label" id="queue-label" style="display:none;margin:0">Cola de facturas</div>
-    <button class="hbtn" id="gmail-sync-btn" onclick="syncGmail()" style="margin-left:auto">📧 Sincronizar Gmail</button>
+  <div id="queue-label-wrap">
+    <div class="gmail-accounts-bar" id="gmail-accounts-bar">
+      <button class="gmail-add-btn" onclick="addGmailAccount()">+ Agregar cuenta Gmail</button>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+      <div class="section-label" id="queue-label" style="display:none;margin:0">Cola de facturas</div>
+      <button class="hbtn" id="gmail-sync-btn" onclick="syncAllGmailAccounts()" style="margin-left:auto">📧 Sincronizar Gmail</button>
+    </div>
   </div>
   <div class="queue" id="queue"></div>
 </main>
@@ -542,6 +553,7 @@ function init() {
   renderLedger();
   updateLedgerFilters();
   renderCalendar();
+  renderGmailAccounts();
 }
 
 // ══════════════════════════════════════════
@@ -1444,7 +1456,111 @@ function saveProcessedEmails() {
   localStorage.setItem('fs_processed_emails', JSON.stringify(processedEmails));
 }
 
+// ── GMAIL MULTI-ACCOUNT ──
+let gmailAccounts = JSON.parse(localStorage.getItem('fs_gmail_accounts') || '[]');
+// Each account: { email, token, tokenExpiry }
+
+function saveGmailAccounts() {
+  // Don't save tokens to localStorage (they expire), just emails
+  const toSave = gmailAccounts.map(a => ({ email: a.email }));
+  localStorage.setItem('fs_gmail_accounts', JSON.stringify(toSave));
+}
+
+function renderGmailAccounts() {
+  const bar = document.getElementById('gmail-accounts-bar');
+  if (!bar) return;
+  const chips = gmailAccounts.map(a => `
+    <span class="gmail-account-chip">
+      📧 ${a.email}
+      <span class="chip-remove" onclick="removeGmailAccount('${a.email}')">×</span>
+    </span>
+  `).join('');
+  bar.innerHTML = chips + '<button class="gmail-add-btn" onclick="addGmailAccount()">+ Agregar cuenta</button>';
+}
+
+function removeGmailAccount(email) {
+  gmailAccounts = gmailAccounts.filter(a => a.email !== email);
+  saveGmailAccounts();
+  renderGmailAccounts();
+}
+
+function addGmailAccount() {
+  if (!googleClientId) { showToast('Configurá el Google Client ID primero', 'error'); return; }
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: googleClientId,
+    scope: 'https://www.googleapis.com/auth/gmail.readonly',
+    prompt: 'select_account',
+    callback: async (tokenResponse) => {
+      if (tokenResponse.error) { showToast('Error conectando cuenta', 'error'); return; }
+      const token = tokenResponse.access_token;
+      // Get email address for this token
+      try {
+        const profileRes = await fetch('https://www.googleapis.com/gmail/v1/users/me/profile', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const profile = await profileRes.json();
+        const email = profile.emailAddress;
+        if (!email) throw new Error('No email');
+        // Add or update account
+        const existing = gmailAccounts.find(a => a.email === email);
+        if (existing) {
+          existing.token = token;
+          showToast('✓ ' + email + ' reconectado', 'success');
+        } else {
+          gmailAccounts.push({ email, token });
+          showToast('✓ ' + email + ' agregado', 'success');
+        }
+        saveGmailAccounts();
+        renderGmailAccounts();
+      } catch(e) {
+        showToast('Error obteniendo perfil: ' + e.message, 'error');
+      }
+    }
+  });
+  client.requestAccessToken();
+}
+
+async function syncAllGmailAccounts() {
+  if (gmailAccounts.length === 0) {
+    showToast('Agregá al menos una cuenta Gmail primero', 'error');
+    return;
+  }
+  const btn = document.getElementById('gmail-sync-btn');
+  btn.disabled = true;
+  let totalAdded = 0;
+  for (const account of gmailAccounts) {
+    if (!account.token) {
+      showToast('⚠️ ' + account.email + ' necesita reconectarse', 'error');
+      continue;
+    }
+    btn.textContent = '⏳ ' + account.email.split('@')[0] + '...';
+    try {
+      const added = await syncGmailAccount(account.token);
+      totalAdded += added;
+    } catch(e) {
+      if (e.message && e.message.includes('401')) {
+        showToast('Token expirado: reconectá ' + account.email, 'error');
+        account.token = null;
+      } else {
+        showToast('Error en ' + account.email + ': ' + e.message, 'error');
+      }
+    }
+  }
+  saveProcessedEmails();
+  btn.disabled = false;
+  btn.innerHTML = '📧 Sincronizar Gmail';
+  if (totalAdded > 0) showToast('📧 ' + totalAdded + ' facturas añadidas de ' + gmailAccounts.length + ' cuentas', 'success');
+  else showToast('📧 Sin facturas nuevas', 'success');
+}
+
 async function syncGmail() {
+  // Legacy single-account sync using driveAccessToken
+  if (!driveAccessToken) { showToast('Conectá Drive primero', 'error'); return; }
+  await syncGmailAccount(driveAccessToken);
+  saveProcessedEmails();
+}
+
+async function syncGmailAccount(token) {
   if (!driveAccessToken) {
     showToast('Conectá Drive/Google primero', 'error');
     return;
@@ -1456,23 +1572,18 @@ async function syncGmail() {
     const query = encodeURIComponent('has:attachment (factura OR fatura OR invoice OR receipt OR recibo OR rechnung OR nota) newer_than:365d');
     const searchRes = await fetch(
       'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + query + '&maxResults=50',
-      { headers: { Authorization: 'Bearer ' + driveAccessToken } }
+      { headers: { Authorization: 'Bearer ' + token } }
     );
     const searchData = await searchRes.json();
     if (searchData.error) throw new Error(searchData.error.message);
     const messages = searchData.messages || [];
     const newMessages = messages.filter(m => !processedEmails.includes(m.id));
-    if (newMessages.length === 0) {
-      showToast('📧 Sin emails nuevos con facturas', 'success');
-      btn.disabled = false; btn.innerHTML = '📧 Sincronizar Gmail'; return;
-    }
-    btn.textContent = '⏳ ' + newMessages.length + ' emails...';
-    let added = 0;
+    if (newMessages.length === 0) { return 0; }
     for (const msg of newMessages.slice(0, 20)) {
       try {
         const msgRes = await fetch(
           'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + msg.id + '?format=full',
-          { headers: { Authorization: 'Bearer ' + driveAccessToken } }
+          { headers: { Authorization: 'Bearer ' + token } }
         );
         const msgData = await msgRes.json();
         const attachments = getGmailAttachments(msgData.payload);
@@ -1480,7 +1591,7 @@ async function syncGmail() {
         for (const att of invoiceAtts) {
           const attRes = await fetch(
             'https://gmail.googleapis.com/gmail/v1/users/me/messages/' + msg.id + '/attachments/' + att.attachmentId,
-            { headers: { Authorization: 'Bearer ' + driveAccessToken } }
+            { headers: { Authorization: 'Bearer ' + token } }
           );
           const attData = await attRes.json();
           const base64 = attData.data.replace(/-/g, '+').replace(/_/g, '/');
@@ -1498,14 +1609,11 @@ async function syncGmail() {
         processedEmails.push(msg.id);
       }
     }
-    saveProcessedEmails();
-    showToast('📧 ' + added + ' facturas añadidas a la cola', 'success');
+    return added;
   } catch(e) {
     console.error('Gmail sync error:', e);
-    showToast('Error Gmail: ' + e.message, 'error');
+    throw e;
   }
-  btn.disabled = false;
-  btn.innerHTML = '📧 Sincronizar Gmail';
 }
 
 function getGmailAttachments(payload, result = []) {
@@ -2183,44 +2291,6 @@ function rematchExtracto(record) {
 let processedEmails = JSON.parse(localStorage.getItem('fs_processed_emails') || '[]');
 function saveProcessedEmails() { localStorage.setItem('fs_processed_emails', JSON.stringify(processedEmails)); }
 
-async function syncGmail() {
-  if (!driveAccessToken) { showToast('Conectá Drive/Google primero', 'error'); return; }
-  const btn = document.getElementById('gmail-sync-btn');
-  btn.disabled = true; btn.textContent = '⏳ Buscando...';
-  try {
-    const query = encodeURIComponent('has:attachment (factura OR fatura OR invoice OR receipt OR recibo OR rechnung OR nota) newer_than:365d');
-    const searchRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + query + '&maxResults=50', { headers: { Authorization: 'Bearer ' + driveAccessToken } });
-    const searchData = await searchRes.json();
-    if (searchData.error) throw new Error(searchData.error.message);
-    const messages = searchData.messages || [];
-    const newMessages = messages.filter(m => !processedEmails.includes(m.id));
-    if (newMessages.length === 0) { showToast('📧 Sin emails nuevos', 'success'); btn.disabled = false; btn.innerHTML = '📧 Sincronizar Gmail'; return; }
-    btn.textContent = '⏳ ' + newMessages.length + ' emails...';
-    let added = 0;
-    for (const msg of newMessages.slice(0, 20)) {
-      try {
-        const msgRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/' + msg.id + '?format=full', { headers: { Authorization: 'Bearer ' + driveAccessToken } });
-        const msgData = await msgRes.json();
-        const attachments = getGmailAttachments(msgData.payload);
-        const invoiceAtts = attachments.filter(a => isLikelyInvoice(a.filename, a.mimeType));
-        for (const att of invoiceAtts) {
-          const attRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/' + msg.id + '/attachments/' + att.attachmentId, { headers: { Authorization: 'Bearer ' + driveAccessToken } });
-          const attData = await attRes.json();
-          const base64 = attData.data.replace(/-/g, '+').replace(/_/g, '/');
-          const binary = atob(base64); const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes], { type: att.mimeType || 'application/pdf' });
-          const file = new File([blob], att.filename, { type: att.mimeType || 'application/pdf' });
-          await addEmailAttachmentToQueue(file); added++;
-        }
-        processedEmails.push(msg.id);
-      } catch(e) { console.error('Email error:', e); processedEmails.push(msg.id); }
-    }
-    saveProcessedEmails();
-    showToast('📧 ' + added + ' facturas añadidas', 'success');
-  } catch(e) { showToast('Error Gmail: ' + e.message, 'error'); }
-  btn.disabled = false; btn.innerHTML = '📧 Sincronizar Gmail';
-}
 
 function getGmailAttachments(payload, result = []) {
   if (!payload) return result;
