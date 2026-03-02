@@ -2243,9 +2243,14 @@ function isLikelyInvoice(filename, mimeType) {
 }
 
 async function addEmailAttachmentToQueue(file) {
-  const inv = { id: Date.now() + Math.random(), file, fileName: file.name, status: 'pending', source: 'gmail', data: null, pages: [] };
-  invoices.push(inv); renderQueue();
-  try { await analyzeInvoice(inv); } catch(e) { inv.status = 'error'; inv.errorMsg = e.message; renderQueue(); }
+  if (file.type === 'application/pdf') {
+    await handlePDF(file);
+  } else {
+    const dataUrl = await readFile(file);
+    const inv = { id: Date.now() + Math.random(), file, fileName: file.name, dataUrl, status: 'pending', source: 'gmail', data: null };
+    invoices.push(inv); renderQueue();
+    try { await analyzeInvoice(inv); } catch(e) { inv.status = 'error'; inv.errorMsg = e.message; renderQueue(); }
+  }
 }
 
 </script>
