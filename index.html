@@ -1593,7 +1593,7 @@ async function syncGmailAccount(token) {
       allMessages = allMessages.concat(searchData.messages || []);
       pageToken = searchData.nextPageToken || null;
     } while (pageToken);
-    const newMessages = allMessages.filter(m => !processedEmails.includes(m.id));
+    const newMessages = allMessages.filter(m => !getProcessedForYear(year).includes(m.id));
     if (newMessages.length === 0) { return 0; }
     for (const msg of newMessages) {
       try {
@@ -1622,10 +1622,10 @@ async function syncGmailAccount(token) {
           await addEmailAttachmentToQueue(file);
           added++;
         }
-        processedEmails.push(msg.id);
+        markProcessed(year, msg.id);
       } catch(e) {
         console.error('Email error:', e);
-        processedEmails.push(msg.id);
+        markProcessed(year, msg.id);
       }
     }
     return added;
@@ -2307,8 +2307,10 @@ function rematchExtracto(record) {
 }
 
 // ── GMAIL SYNC ──
-let processedEmails = JSON.parse(localStorage.getItem('fs_processed_emails') || '[]');
-function saveProcessedEmails() { localStorage.setItem('fs_processed_emails', JSON.stringify(processedEmails)); }
+let processedEmailsByYear = JSON.parse(localStorage.getItem('fs_processed_emails_v2') || '{}');
+function saveProcessedEmails() { localStorage.setItem('fs_processed_emails_v2', JSON.stringify(processedEmailsByYear)); }
+function getProcessedForYear(year) { return processedEmailsByYear[year] || []; }
+function markProcessed(year, msgId) { if (!processedEmailsByYear[year]) processedEmailsByYear[year] = []; processedEmailsByYear[year].push(msgId); }
 
 
 function getGmailAttachments(payload, result = []) {
