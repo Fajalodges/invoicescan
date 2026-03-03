@@ -84,11 +84,11 @@
     .drive-path { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); background: var(--surface2); padding: 3px 8px; border-radius: 6px; display: inline-block; margin-top: 6px; }
 
     /* UPLOAD ALL BAR */
-    #upload-all-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 14px 20px; background: var(--surface); border-top: 1.5px solid var(--border); display: none; justify-content: space-between; align-items: center; z-index: 200; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); }
+    #upload-all-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 16px 10px 24px; background: var(--accent); border-radius: 100px; display: none; align-items: center; gap: 16px; z-index: 200; box-shadow: 0 4px 24px rgba(0,0,0,0.2); white-space: nowrap; }
     #upload-all-bar.visible { display: flex; }
-    #upload-all-btn { background: var(--accent); color: #fff; border: none; padding: 12px 28px; border-radius: 12px; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; cursor: pointer; transition: opacity .15s; }
+    #upload-all-btn { background: #fff; color: var(--accent); border: none; padding: 8px 20px; border-radius: 100px; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; cursor: pointer; transition: opacity .15s; }
     #upload-all-btn:hover { opacity: 0.85; }
-    .upload-all-info { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+    .upload-all-info { font-family: 'DM Mono', monospace; font-size: 12px; color: rgba(255,255,255,0.85); }
 
     /* LEDGER TAB */
     .ledger-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -270,7 +270,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.24</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.25</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -1004,13 +1004,17 @@ async function createFolder(name, parentId) {
 
 // Get or create folder ONLY within a known parent (never search globally)
 async function getOrCreateSubfolder(name, parentId) {
+  const cacheKey = 'folder::' + parentId + '::' + name;
+  if (_sheetCache[cacheKey]) return _sheetCache[cacheKey];
   const q = `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
   const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`, {
     headers: { Authorization: `Bearer ${driveAccessToken}` }
   });
   const searchData = await searchRes.json();
-  if (searchData.files?.length > 0) return searchData.files[0].id;
-  return createFolder(name, parentId);
+  if (searchData.files?.length > 0) { _sheetCache[cacheKey] = searchData.files[0].id; return searchData.files[0].id; }
+  const id = await createFolder(name, parentId);
+  _sheetCache[cacheKey] = id;
+  return id;
 }
 
 // Get the app's own root folder — stored by Drive file ID so we never confuse it with other folders
@@ -1154,14 +1158,17 @@ async function uploadAll() {
 // ══════════════════════════════════════════
 const SHEET_HEADERS = ['Fecha', 'Proveedor', 'Monto', 'Nº Factura', 'Proyecto', 'Link en Drive', 'Fecha de subida'];
 
+const _sheetCache = {};
 async function getOrCreateSheet(name, folderId) {
+  const cacheKey = folderId + '::' + name;
+  if (_sheetCache[cacheKey]) return _sheetCache[cacheKey];
   // Search for existing sheet
   const q = `name='${name}' and mimeType='application/vnd.google-apps.spreadsheet' and '${folderId}' in parents and trashed=false`;
   const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`, {
     headers: { Authorization: `Bearer ${driveAccessToken}` }
   });
   const searchData = await searchRes.json();
-  if (searchData.files?.length > 0) return searchData.files[0].id;
+  if (searchData.files?.length > 0) { _sheetCache[cacheKey] = searchData.files[0].id; return searchData.files[0].id; }
 
   // Create new spreadsheet via Sheets API directly (more reliable)
   const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
