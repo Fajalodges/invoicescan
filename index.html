@@ -84,11 +84,11 @@
     .drive-path { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); background: var(--surface2); padding: 3px 8px; border-radius: 6px; display: inline-block; margin-top: 6px; }
 
     /* UPLOAD ALL BAR */
-    #upload-all-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 16px 10px 24px; background: var(--accent); border-radius: 100px; display: none; align-items: center; gap: 16px; z-index: 200; box-shadow: 0 4px 24px rgba(0,0,0,0.2); white-space: nowrap; }
+    #upload-all-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 14px 20px; background: var(--surface); border-top: 1.5px solid var(--border); display: none; justify-content: space-between; align-items: center; z-index: 200; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); }
     #upload-all-bar.visible { display: flex; }
-    #upload-all-btn { background: #fff; color: var(--accent); border: none; padding: 8px 20px; border-radius: 100px; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; cursor: pointer; transition: opacity .15s; }
+    #upload-all-btn { background: var(--accent); color: #fff; border: none; padding: 12px 28px; border-radius: 12px; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; cursor: pointer; transition: opacity .15s; }
     #upload-all-btn:hover { opacity: 0.85; }
-    .upload-all-info { font-family: 'DM Mono', monospace; font-size: 12px; color: rgba(255,255,255,0.85); }
+    .upload-all-info { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
 
     /* LEDGER TAB */
     .ledger-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
