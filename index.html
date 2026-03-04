@@ -270,7 +270,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.25</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.26</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -830,6 +830,11 @@ async function analyzeInvoice(invoice) {
     const clean = text.replace(/```json|```/g, '').trim();
     const data = JSON.parse(clean);
     invoice.data = data;
+    // Check for duplicates in ledger
+    const dupCheck = checkDuplicate(data);
+    if (dupCheck) {
+      invoice.duplicate = dupCheck;
+    }
     invoice.status = 'ready';
 
     if (data.proyecto_sugerido) {
@@ -1464,6 +1469,35 @@ let pendingExtractoKey = null;
 
 function saveProcessedEmails() {
   localStorage.setItem('fs_processed_emails', JSON.stringify(processedEmails));
+}
+
+
+// ── DUPLICATE DETECTION ──
+function checkDuplicate(data) {
+  if (!data || !data.monto || !data.fecha) return null;
+  const normMonto = m => parseFloat(String(m).replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
+  const normFecha = f => {
+    if (!f) return '';
+    // Try to parse DD/MM/YYYY or YYYY-MM-DD
+    const parts = f.includes('/') ? f.split('/').reverse() : f.split('-');
+    return parts.slice(0, 3).join('-');
+  };
+  const newMonto = normMonto(data.monto);
+  const newFecha = normFecha(data.fecha);
+  const newProv = (data.proveedor || '').toLowerCase().slice(0, 8);
+
+  for (const rec of ledger) {
+    const recMonto = normMonto(rec.monto);
+    const recFecha = normFecha(rec.fecha);
+    const recProv = (rec.proveedor || '').toLowerCase().slice(0, 8);
+    const montoMatch = newMonto > 0 && Math.abs(newMonto - recMonto) < 0.01;
+    const fechaMatch = newFecha && recFecha && newFecha === recFecha;
+    const provMatch = newProv.length >= 4 && recProv.length >= 4 && newProv === recProv;
+    if (montoMatch && fechaMatch && provMatch) {
+      return { proveedor: rec.proveedor, monto: rec.monto, fecha: rec.fecha };
+    }
+  }
+  return null;
 }
 
 // ── GMAIL MULTI-ACCOUNT ──
