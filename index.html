@@ -241,6 +241,28 @@
     .gmail-add-btn { padding:4px 10px; border-radius:100px; border:1.5px dashed #93c5fd; background:transparent; font-size:11px; font-weight:700; color:#2563eb; cursor:pointer; font-family:'Syne',sans-serif; transition:all .15s; }
     .gmail-add-btn:hover { background:#eff6ff; }
 
+    /* PROVIDER STATS */
+    .provider-stat-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+    .provider-stat-row:last-child { border-bottom:none; }
+    .provider-bar-wrap { flex:1; background:var(--surface2); border-radius:100px; height:8px; overflow:hidden; }
+    .provider-bar { height:8px; border-radius:100px; background:var(--blue); transition:width .4s; }
+    .provider-name { font-size:13px; font-weight:600; width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }
+    .provider-amount { font-family:'DM Mono',monospace; font-size:12px; font-weight:700; width:80px; text-align:right; flex-shrink:0; }
+    .provider-count { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); width:50px; text-align:right; flex-shrink:0; }
+    .stats-year-total { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; letter-spacing:-1px; margin-bottom:4px; }
+    .stats-section-title { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin:20px 0 10px; }
+
+    /* PROVIDER STATS */
+    .provider-stat-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+    .provider-stat-row:last-child { border-bottom:none; }
+    .provider-bar-wrap { flex:1; background:var(--surface2); border-radius:100px; height:8px; overflow:hidden; }
+    .provider-bar { height:8px; border-radius:100px; background:var(--blue); transition:width .4s; }
+    .provider-name { font-size:13px; font-weight:600; width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }
+    .provider-amount { font-family:'DM Mono',monospace; font-size:12px; font-weight:700; width:80px; text-align:right; flex-shrink:0; }
+    .provider-count { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); width:50px; text-align:right; flex-shrink:0; }
+    .stats-year-total { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; letter-spacing:-1px; margin-bottom:4px; }
+    .stats-section-title { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin:20px 0 10px; }
+
     @media (max-width: 600px) {
       header { padding: 0 16px; }
       .tabs { padding: 0 8px; }
@@ -270,7 +292,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.26</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.27</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -463,6 +485,7 @@
 <div id="upload-all-bar">
   <div class="upload-all-info" id="upload-all-info"></div>
   <button id="upload-all-btn" onclick="uploadAll()">⬆ Subir todas</button>
+  </div> <!-- end ledger-list-view -->
 </div>
 
 <!-- ADD PROJECT MODAL -->
@@ -1472,6 +1495,89 @@ function saveProcessedEmails() {
   localStorage.setItem('fs_processed_emails', JSON.stringify(processedEmails));
 }
 
+
+
+// ── PROVIDER STATS ──
+let currentLedgerView = 'list';
+
+function setLedgerView(view) {
+  currentLedgerView = view;
+  document.getElementById('ledger-list-view').style.display = view === 'list' ? 'block' : 'none';
+  document.getElementById('ledger-stats-view').style.display = view === 'stats' ? 'block' : 'none';
+  document.getElementById('ledger-view-list').classList.toggle('active', view === 'list');
+  document.getElementById('ledger-view-stats').classList.toggle('active', view === 'stats');
+  if (view === 'stats') renderProviderStats();
+}
+
+function renderProviderStats() {
+  const filterMonth = document.getElementById('filter-month')?.value || '';
+  const filterProject = document.getElementById('filter-project')?.value || '';
+  
+  let filtered = ledger.filter(r => {
+    if (filterMonth && (!r.fecha || !r.fecha.startsWith(filterMonth))) return false;
+    if (filterProject && r.proyecto !== filterProject) return false;
+    return true;
+  });
+
+  const normMonto = m => parseFloat(String(m || '0').replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
+
+  // Group by provider
+  const byProvider = {};
+  for (const rec of filtered) {
+    const prov = rec.proveedor || 'Sin proveedor';
+    if (!byProvider[prov]) byProvider[prov] = { total: 0, count: 0 };
+    byProvider[prov].total += normMonto(rec.monto);
+    byProvider[prov].count++;
+  }
+
+  const sorted = Object.entries(byProvider).sort((a, b) => b[1].total - a[1].total);
+  const grandTotal = sorted.reduce((s, [, v]) => s + v.total, 0);
+  const maxTotal = sorted[0]?.[1].total || 1;
+
+  // Group by project too
+  const byProject = {};
+  for (const rec of filtered) {
+    const proj = rec.proyecto || 'Sin proyecto';
+    if (!byProject[proj]) byProject[proj] = 0;
+    byProject[proj] += normMonto(rec.monto);
+  }
+  const sortedProj = Object.entries(byProject).sort((a, b) => b[1] - a[1]);
+
+  const fmt = n => '€' + n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  const container = document.getElementById('stats-by-provider');
+  container.innerHTML = `
+    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+      <div class="summary-label">Total ${filterMonth || 'histórico'}${filterProject ? ' · ' + filterProject : ''}</div>
+      <div class="stats-year-total">${fmt(grandTotal)}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${filtered.length} facturas · ${sorted.length} proveedores</div>
+    </div>
+
+    <div class="stats-section-title">Por proveedor</div>
+    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px 20px;margin-bottom:16px">
+      ${sorted.map(([prov, data]) => `
+        <div class="provider-stat-row">
+          <div class="provider-name" title="${prov}">${prov}</div>
+          <div class="provider-bar-wrap"><div class="provider-bar" style="width:${Math.round(data.total/maxTotal*100)}%"></div></div>
+          <div class="provider-amount">${fmt(data.total)}</div>
+          <div class="provider-count">${data.count}×</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="stats-section-title">Por proyecto</div>
+    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px 20px">
+      ${sortedProj.map(([proj, total]) => `
+        <div class="provider-stat-row">
+          <div class="provider-name">${proj}</div>
+          <div class="provider-bar-wrap"><div class="provider-bar" style="width:${Math.round(total/grandTotal*100)}%;background:#16a34a"></div></div>
+          <div class="provider-amount">${fmt(total)}</div>
+          <div class="provider-count">${filtered.filter(r => (r.proyecto||'Sin proyecto')===proj).length}×</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
 
 // ── DUPLICATE DETECTION ──
 function checkDuplicate(data) {
