@@ -241,6 +241,20 @@
     .gmail-add-btn { padding:4px 10px; border-radius:100px; border:1.5px dashed #93c5fd; background:transparent; font-size:11px; font-weight:700; color:#2563eb; cursor:pointer; font-family:'Syne',sans-serif; transition:all .15s; }
     .gmail-add-btn:hover { background:#eff6ff; }
 
+
+    /* CATEGORY BADGES */
+    .cat-badge { display:inline-flex; align-items:center; padding:2px 8px; border-radius:100px; font-size:10px; font-weight:700; border:1px solid; white-space:nowrap; }
+    .cat-materiales { background:#fed7aa; border-color:#f97316; color:#7c2d12; }
+    .cat-servicios { background:#bfdbfe; border-color:#3b82f6; color:#1e3a8a; }
+    .cat-utilities { background:#bbf7d0; border-color:#22c55e; color:#14532d; }
+    .cat-software { background:#e9d5ff; border-color:#a855f7; color:#4a1272; }
+    .cat-transporte { background:#fde68a; border-color:#eab308; color:#713f12; }
+    .cat-alimentación { background:#fecaca; border-color:#ef4444; color:#7f1d1d; }
+    .cat-impuestos { background:#e2e8f0; border-color:#94a3b8; color:#1e293b; }
+    .cat-seguros { background:#cffafe; border-color:#06b6d4; color:#164e63; }
+    .cat-marketing { background:#fbcfe8; border-color:#ec4899; color:#831843; }
+    .cat-otros { background:#f1f5f9; border-color:#cbd5e1; color:#334155; }
+
     /* PROVIDER STATS */
     .provider-stat-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
     .provider-stat-row:last-child { border-bottom:none; }
@@ -251,6 +265,20 @@
     .provider-count { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); width:50px; text-align:right; flex-shrink:0; }
     .stats-year-total { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; letter-spacing:-1px; margin-bottom:4px; }
     .stats-section-title { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin:20px 0 10px; }
+
+
+    /* CATEGORY BADGES */
+    .cat-badge { display:inline-flex; align-items:center; padding:2px 8px; border-radius:100px; font-size:10px; font-weight:700; border:1px solid; white-space:nowrap; }
+    .cat-materiales { background:#fed7aa; border-color:#f97316; color:#7c2d12; }
+    .cat-servicios { background:#bfdbfe; border-color:#3b82f6; color:#1e3a8a; }
+    .cat-utilities { background:#bbf7d0; border-color:#22c55e; color:#14532d; }
+    .cat-software { background:#e9d5ff; border-color:#a855f7; color:#4a1272; }
+    .cat-transporte { background:#fde68a; border-color:#eab308; color:#713f12; }
+    .cat-alimentación { background:#fecaca; border-color:#ef4444; color:#7f1d1d; }
+    .cat-impuestos { background:#e2e8f0; border-color:#94a3b8; color:#1e293b; }
+    .cat-seguros { background:#cffafe; border-color:#06b6d4; color:#164e63; }
+    .cat-marketing { background:#fbcfe8; border-color:#ec4899; color:#831843; }
+    .cat-otros { background:#f1f5f9; border-color:#cbd5e1; color:#334155; }
 
     /* PROVIDER STATS */
     .provider-stat-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
@@ -300,7 +328,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.27</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.28</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
@@ -932,6 +960,7 @@ function renderQueue() {
           <div class="card-status status-${inv.status}">${statusMap[inv.status] || inv.status}</div>
           ${inv.duplicate ? `<div style="background:#fef9c3;border:1.5px solid #fde047;border-radius:8px;padding:5px 10px;font-size:11px;color:#854d0e;margin-top:4px;margin-bottom:4px">⚠️ Posible duplicado: <strong>${inv.duplicate.proveedor}</strong> ${inv.duplicate.monto} · ${inv.duplicate.fecha}</div>` : ''}
           ${inv.pdfSource ? `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:4px">📄 ${inv.pdfSource}</div>` : ''}
+          ${d.categoria ? `<div style="display:inline-flex;margin-bottom:6px"><span class="cat-badge cat-${d.categoria.split(' ')[0].toLowerCase()}">${d.categoria}</span></div>` : ''}
           <div class="card-fields">
             <div class="field-item"><div class="field-label">Proveedor</div><div class="field-value">${d.proveedor || '—'}</div></div>
             <div class="field-item"><div class="field-label">Fecha</div><div class="field-value">${fecha}</div></div>
@@ -1674,6 +1703,12 @@ function generatePDF() {
   setTimeout(() => win.print(), 500);
 }
 
+
+// ── CATEGORIES ──
+const DEFAULT_CATEGORIES = ['Materiales y suministros','Servicios y mantenimiento','Utilities','Software y suscripciones','Transporte','Alimentación','Impuestos y tasas','Seguros','Marketing y publicidad','Otros'];
+let categories = JSON.parse(localStorage.getItem('fs_categories') || JSON.stringify(DEFAULT_CATEGORIES));
+function saveCategories() { localStorage.setItem('fs_categories', JSON.stringify(categories)); }
+
 // ── PROVIDER STATS ──
 let currentLedgerView = 'list';
 
@@ -1738,6 +1773,18 @@ function renderProviderStats() {
           <div class="provider-bar-wrap"><div class="provider-bar" style="width:${Math.round(data.total/maxTotal*100)}%"></div></div>
           <div class="provider-amount">${fmt(data.total)}</div>
           <div class="provider-count">${data.count}×</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="stats-section-title">Por categoría</div>
+    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px 20px;margin-bottom:16px">
+      ${Object.entries(filtered.reduce((acc, r) => { const c = r.categoria||'Otros'; acc[c]=(acc[c]||0)+normMonto(r.monto); return acc; }, {})).sort((a,b)=>b[1]-a[1]).map(([cat,total]) => `
+        <div class="provider-stat-row">
+          <div class="provider-name"><span class="cat-badge cat-${cat.split(' ')[0].toLowerCase()}">${cat}</span></div>
+          <div class="provider-bar-wrap"><div class="provider-bar" style="width:\${Math.round(total/grandTotal*100)}%;background:#8b5cf6"></div></div>
+          <div class="provider-amount">\${fmt(total)}</div>
+          <div class="provider-count">\${filtered.filter(r=>(r.categoria||'Otros')===cat).length}×</div>
         </div>
       `).join('')}
     </div>
