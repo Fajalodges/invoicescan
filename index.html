@@ -346,6 +346,16 @@
 <main id="view-ledger" style="display:none">
   <div style="height:16px"></div>
 
+  <div style="display:flex;gap:8px;margin-bottom:20px">
+    <button class="period-btn active" id="ledger-view-list" onclick="setLedgerView('list')">📋 Facturas</button>
+    <button class="period-btn" id="ledger-view-stats" onclick="setLedgerView('stats')">📊 Por proveedor</button>
+  </div>
+
+  <div id="ledger-stats-view" style="display:none">
+    <div id="stats-by-provider"></div>
+  </div>
+
+  <div id="ledger-list-view">
   <div class="ledger-summary">
     <div class="summary-card">
       <div class="summary-label">Total facturas</div>
@@ -486,6 +496,7 @@
   <div class="upload-all-info" id="upload-all-info"></div>
   <button id="upload-all-btn" onclick="uploadAll()">⬆ Subir todas</button>
   </div> <!-- end ledger-list-view -->
+  </div><!-- end ledger-list-view -->
 </div>
 
 <!-- ADD PROJECT MODAL -->
