@@ -414,6 +414,9 @@
     <select class="filter-select" id="filter-project" onchange="renderLedger()">
       <option value="">Todos los proyectos</option>
     </select>
+    <select id="filter-category" class="filter-select" onchange="renderLedger()">
+      <option value="">Todas las categorías</option>
+    </select>
     <button class="hbtn" onclick="exportSheetNow()" style="margin-left:auto">📊 Actualizar Sheet</button>
     <button class="hbtn" onclick="openExportModal()" style="gap:6px">📄 Exportar PDF</button>
   </div>
@@ -582,7 +585,10 @@
 let projects = JSON.parse(localStorage.getItem('fs_projects') || '["House Ash","House Lili","General"]');
 let activeProject = projects[0];
 let invoices = []; // current scan queue
-let ledger = JSON.parse(localStorage.getItem('fs_ledger') || '[]'); // persistent uploaded records
+let ledger = JSON.parse(localStorage.getItem('fs_ledger') || '[]');
+const DEFAULT_CATEGORIES = ['Materiales y suministros','Servicios y mantenimiento','Utilities','Software y suscripciones','Transporte','Alimentación','Impuestos y tasas','Seguros','Marketing y publicidad','Otros'];
+let categories = JSON.parse(localStorage.getItem('fs_categories') || JSON.stringify(DEFAULT_CATEGORIES));
+function saveCategories() { localStorage.setItem('fs_categories', JSON.stringify(categories)); } // persistent uploaded records
 let driveConnected = false;
 let driveAccessToken = null;
 let claudeKey = '';
@@ -889,7 +895,7 @@ async function analyzeInvoice(invoice) {
           role: 'user',
           content: [
             ...imageContent,
-            { type: 'text', text: 'Analizá esta factura/recibo. IMPORTANTE: el formato numérico es europeo/portugués donde el punto "." separa miles y la coma "," separa decimales. Ejemplo: 1.234,56 = €1234.56. El PROVEEDOR es quien EMITE la factura (el vendedor, quien tiene el logo y firma el documento), NO quien la recibe. Respondé SOLO con JSON válido sin markdown:\n{"fecha":"YYYY-MM-DD","proveedor":"nombre del EMISOR/VENDEDOR (no del comprador)","monto":"importe total en formato €1234.56 (punto decimal, sin separador de miles)","numero_factura":"número o null","proyecto_sugerido":"nombre de proyecto si aparece en la factura o null"}\nSi no podés leer un campo usá null.' }
+            { type: 'text', text: 'Analizá esta factura/recibo. IMPORTANTE: el formato numérico es europeo/portugués donde el punto "." separa miles y la coma "," separa decimales. Ejemplo: 1.234,56 = €1234.56. El PROVEEDOR es quien EMITE la factura (el vendedor, quien tiene el logo y firma el documento), NO quien la recibe. Respondé SOLO con JSON válido sin markdown:\n{"fecha":"YYYY-MM-DD","proveedor":"nombre del EMISOR/VENDEDOR (no del comprador)","monto":"importe total en formato €1234.56 (punto decimal, sin separador de miles)","numero_factura":"número o null","proyecto_sugerido":"nombre de proyecto si aparece en la factura o null","categoria":"una de: Materiales y suministros, Servicios y mantenimiento, Utilities, Software y suscripciones, Transporte, Alimentación, Impuestos y tasas, Seguros, Marketing y publicidad, Otros"}\nSi no podés leer un campo usá null.' }
           ]
         }]
       })
@@ -1175,6 +1181,7 @@ async function uploadInvoice(id) {
       proveedor: d.proveedor || '',
       monto: d.monto || '',
       numero_factura: d.numero_factura || '',
+      categoria: d.categoria || 'Otros',
       proyecto: inv.project,
       driveLink: uploaded.webViewLink,
       driveFileId: uploaded.id,
@@ -1402,9 +1409,11 @@ function renderLedger() {
   const filterMonth = document.getElementById('filter-month')?.value || '';
   const filterProject = document.getElementById('filter-project')?.value || '';
 
+  const filterCategory = document.getElementById('filter-category')?.value || '';
   let filtered = ledger.filter(r => {
     if (filterMonth && (!r.fecha || !r.fecha.startsWith(filterMonth))) return false;
     if (filterProject && r.proyecto !== filterProject) return false;
+    if (filterCategory && r.categoria !== filterCategory) return false;
     return true;
   }).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 
@@ -1546,6 +1555,32 @@ function saveProcessedEmails() {
 
 
 
+
+
+// ── CATEGORIES ──
+function getCategoryColor(cat) {
+  const colors = {
+    'Materiales y suministros': '#b45309',
+    'Servicios y mantenimiento': '#7c3aed',
+    'Utilities': '#0369a1',
+    'Software y suscripciones': '#0891b2',
+    'Transporte': '#b45309',
+    'Alimentación': '#16a34a',
+    'Impuestos y tasas': '#dc2626',
+    'Seguros': '#9333ea',
+    'Marketing y publicidad': '#db2777',
+    'Otros': '#6b7280'
+  };
+  return colors[cat] || '#6b7280';
+}
+
+function populateCategoryFilter() {
+  const sel = document.getElementById('filter-category');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todas las categorías</option>' +
+    categories.map(c => `<option value="${c}" ${c===current?'selected':''}>${c}</option>`).join('');
+}
 
 // ── PDF EXPORT ──
 function openExportModal() {
@@ -1705,9 +1740,6 @@ function generatePDF() {
 
 
 // ── CATEGORIES ──
-const DEFAULT_CATEGORIES = ['Materiales y suministros','Servicios y mantenimiento','Utilities','Software y suscripciones','Transporte','Alimentación','Impuestos y tasas','Seguros','Marketing y publicidad','Otros'];
-let categories = JSON.parse(localStorage.getItem('fs_categories') || JSON.stringify(DEFAULT_CATEGORIES));
-function saveCategories() { localStorage.setItem('fs_categories', JSON.stringify(categories)); }
 
 // ── PROVIDER STATS ──
 let currentLedgerView = 'list';
@@ -1725,9 +1757,11 @@ function renderProviderStats() {
   const filterMonth = document.getElementById('filter-month')?.value || '';
   const filterProject = document.getElementById('filter-project')?.value || '';
   
+  const filterCategory = document.getElementById('filter-category')?.value || '';
   let filtered = ledger.filter(r => {
     if (filterMonth && (!r.fecha || !r.fecha.startsWith(filterMonth))) return false;
     if (filterProject && r.proyecto !== filterProject) return false;
+    if (filterCategory && r.categoria !== filterCategory) return false;
     return true;
   });
 
