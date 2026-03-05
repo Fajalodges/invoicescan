@@ -19,10 +19,11 @@
     }
     [data-theme="dark"] {
       --bg: #0f0f0f; --surface: #1a1a1a; --surface2: #242424;
-      --border: #2e2e2e; --accent: #f0f0f0; --accent2: #f0f0f0;
+      --border: #2e2e2e; --accent: #d4f500; --accent2: #a8c200;
       --text: #f0f0f0; --muted: #666; --danger: #ff5555; --success: #4ade80;
       --blue: #60a5fa;
     }
+    [data-theme="dark"] .gmail-add-btn { border-color: #444; color: #aaa; }
     body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100dvh; overflow-x: hidden; }
 
     header { padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(245,244,240,0.92); backdrop-filter: blur(16px); z-index: 100; gap: 10px; }
@@ -49,7 +50,7 @@
     .projects-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
     .project-chip { padding: 7px 16px; border-radius: 100px; border: 1.5px solid var(--border); font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; background: var(--surface); color: var(--muted); }
     .project-chip:hover { border-color: var(--accent); color: var(--text); }
-    .project-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .project-chip.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
     #add-project-btn { padding: 7px 16px; border-radius: 100px; border: 1.5px dashed var(--border); font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; background: transparent; color: var(--muted); transition: all .15s; }
     #add-project-btn:hover { border-color: var(--accent); color: var(--text); }
 
@@ -178,7 +179,7 @@
     .year-selector { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
     .year-btn { padding: 5px 14px; border-radius: 100px; border: 1.5px solid var(--border); font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; background: var(--surface); color: var(--muted); transition: all .15s; }
     .year-btn:hover { border-color: var(--accent); color: var(--text); }
-    .year-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .year-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
     .extracto-exists-banner { background: #eff6ff; border: 1.5px solid #93c5fd; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
     .extracto-exists-banner .eicon { font-size: 20px; }
     .extracto-exists-banner .etext { flex: 1; font-size: 12px; }
@@ -194,7 +195,7 @@
     .period-selector { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
     .period-btn { padding: 7px 16px; border-radius: 100px; border: 1.5px solid var(--border); font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; background: var(--surface); color: var(--muted); transition: all .15s; }
     .period-btn:hover { border-color: var(--accent); color: var(--text); }
-    .period-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .period-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 
     .match-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
     .match-stat { background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; padding: 18px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
