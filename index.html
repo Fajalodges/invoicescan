@@ -887,6 +887,7 @@ function renderQueue() {
         <img class="card-thumb" src="${inv.dataUrl}" alt="factura" onclick="openPreview(${inv.id})" />
         <div class="card-meta">
           <div class="card-status status-${inv.status}">${statusMap[inv.status] || inv.status}</div>
+          ${inv.duplicate ? `<div style="background:#fef9c3;border:1.5px solid #fde047;border-radius:8px;padding:5px 10px;font-size:11px;color:#854d0e;margin-top:4px;margin-bottom:4px">⚠️ Posible duplicado: <strong>${inv.duplicate.proveedor}</strong> ${inv.duplicate.monto} · ${inv.duplicate.fecha}</div>` : ''}
           ${inv.pdfSource ? `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:4px">📄 ${inv.pdfSource}</div>` : ''}
           <div class="card-fields">
             <div class="field-item"><div class="field-label">Proveedor</div><div class="field-value">${d.proveedor || '—'}</div></div>
@@ -1486,7 +1487,10 @@ function checkDuplicate(data) {
   const newFecha = normFecha(data.fecha);
   const newProv = (data.proveedor || '').toLowerCase().slice(0, 8);
 
-  for (const rec of ledger) {
+  // Also check current queue for same-session duplicates
+  for (const rec of [...ledger, ...invoices.filter(i => i.status === 'done' && i.data).map(i => ({
+    proveedor: i.data.proveedor, monto: i.data.monto, fecha: i.data.fecha
+  }))]) {
     const recMonto = normMonto(rec.monto);
     const recFecha = normFecha(rec.fecha);
     const recProv = (rec.proveedor || '').toLowerCase().slice(0, 8);
