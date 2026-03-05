@@ -75,6 +75,7 @@
     /* DROP ZONE */
     .drop-zone { border: 2px dashed var(--border); border-radius: 20px; padding: 52px 20px; text-align: center; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; margin-bottom: 16px; background: var(--surface); }
     .drop-zone:hover, .drop-zone.drag-over { border-color: var(--blue); background: #eff6ff; }
+    [data-theme="dark"] .drop-zone:hover, [data-theme="dark"] .drop-zone.drag-over { background: #1a1f2e; color: #e8e8e8; }
     .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
     .drop-icon { font-size: 40px; margin-bottom: 12px; display: block; }
     .drop-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 6px; }
@@ -342,6 +343,11 @@
     [data-theme="dark"] .upload-all-info { color: #888 !important; }
     [data-theme="dark"] .tab.active { border-color: #fff !important; color: #fff !important; }
     [data-theme="dark"] .btn-primary { background: #fff !important; color: #000 !important; }
+
+  
+    [data-theme="dark"] .project-chip:hover { border-color: #fff; color: #fff; }
+    [data-theme="dark"] .hbtn:hover { border-color: #fff; color: #fff; }
+    [data-theme="dark"] .drop-zone .drop-title { color: var(--text); }
 
   </style>
 </head>
