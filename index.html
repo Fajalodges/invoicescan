@@ -17,6 +17,12 @@
       --text: #1a1a1a; --muted: #888880; --danger: #e53e3e; --success: #2f855a;
       --blue: #2563eb;
     }
+    [data-theme="dark"] {
+      --bg: #0f0f0f; --surface: #1a1a1a; --surface2: #242424;
+      --border: #2e2e2e; --accent: #f0f0f0; --accent2: #f0f0f0;
+      --text: #f0f0f0; --muted: #666; --danger: #ff5555; --success: #4ade80;
+      --blue: #60a5fa;
+    }
     body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100dvh; overflow-x: hidden; }
 
     header { padding: 0 32px; height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(245,244,240,0.92); backdrop-filter: blur(16px); z-index: 100; gap: 10px; }
@@ -328,12 +334,13 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.28</span></div>
+  <div class="logo">Factura<span>Scan</span> <span style="font-size:10px;font-family:var(--mono);color:var(--muted);font-weight:400">v0.29</span></div>
   <div class="header-actions">
     <button class="hbtn" id="drive-btn" onclick="toggleDriveAuth()">
       <div class="dot"></div>
       <span id="drive-label">Conectar Drive</span>
     </button>
+    <button class="hbtn" id="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
     <button class="hbtn" onclick="resetSetup()" title="Configuración">⚙</button>
   </div>
 </header>
@@ -634,6 +641,7 @@ function init() {
   updateLedgerFilters();
   renderCalendar();
   renderGmailAccounts();
+  initTheme();
 }
 
 // ══════════════════════════════════════════
@@ -1557,6 +1565,24 @@ function saveProcessedEmails() {
 
 
 
+
+// ── THEME TOGGLE ──
+function initTheme() {
+  const saved = localStorage.getItem('fs_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = saved === 'dark' ? '☀️' : '🌙';
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('fs_theme', next);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = next === 'dark' ? '☀️' : '🌙';
+}
+
 // ── CATEGORIES ──
 function getCategoryColor(cat) {
   const colors = {
@@ -1738,6 +1764,24 @@ function generatePDF() {
   setTimeout(() => win.print(), 500);
 }
 
+
+
+// ── THEME TOGGLE ──
+function initTheme() {
+  const saved = localStorage.getItem('fs_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = saved === 'dark' ? '☀️' : '🌙';
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('fs_theme', next);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = next === 'dark' ? '☀️' : '🌙';
+}
 
 // ── CATEGORIES ──
 
